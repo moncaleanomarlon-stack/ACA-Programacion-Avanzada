@@ -140,14 +140,16 @@ INSERT INTO Usuarios (Documento, Nombre, Apellido, Telefono, Email) VALUES
 ('1019888777', 'Santiago', 'Torres', '3187654321', 'santiago.torres@outlook.com'),
 ('1022444555', 'Valentina', 'Rojas', '3129876543', 'valentina.rojas@yahoo.com');
 
+-- Fechas en formato ISO 8601 (con 'T'): no dependen del idioma del servidor.
+-- Con 'yyyy-mm-dd hh:mm:ss' un SQL Server en español lee año-día-mes y falla.
 INSERT INTO Prestamos (UsuarioID, LibroID, FechaPrestamo, FechaDevolucion, Estado) VALUES
-(1, 1, '2026-10-01 09:30:00', '2026-10-10 14:15:00', 'Devuelto'),
-(2, 3, '2026-10-05 11:00:00', '2026-10-12 16:45:00', 'Devuelto'),
-(3, 5, '2026-10-10 15:20:00', '2026-10-20 10:00:00', 'Devuelto'),
-(1, 4, '2026-11-01 10:00:00', NULL, 'Prestado'),
-(2, 7, '2026-11-03 14:30:00', NULL, 'Prestado'),
-(4, 2, '2026-11-05 08:45:00', NULL, 'Prestado'),
-(5, 8, '2026-11-08 16:10:00', NULL, 'Prestado');
+(1, 1, '2026-10-01T09:30:00', '2026-10-10T14:15:00', 'Devuelto'),
+(2, 3, '2026-10-05T11:00:00', '2026-10-12T16:45:00', 'Devuelto'),
+(3, 5, '2026-10-10T15:20:00', '2026-10-20T10:00:00', 'Devuelto'),
+(1, 4, '2026-11-01T10:00:00', NULL, 'Prestado'),
+(2, 7, '2026-11-03T14:30:00', NULL, 'Prestado'),
+(4, 2, '2026-11-05T08:45:00', NULL, 'Prestado'),
+(5, 8, '2026-11-08T16:10:00', NULL, 'Prestado');
 GO
 
 -- 4. VISTAS DE CONSULTA Y REPORTES ------------------------------------
