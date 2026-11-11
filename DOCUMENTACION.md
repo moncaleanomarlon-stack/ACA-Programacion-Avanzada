@@ -43,7 +43,7 @@
 17. [Recomendaciones](#17-recomendaciones)
 18. [Referencias bibliográficas](#18-referencias-bibliográficas)
 
-> **Numeración de páginas:** el formato Markdown no tiene paginación. La versión `DOCUMENTACION.pdf` incluye la misma información con número de página en el pie.
+> **Numeración de páginas:** el formato Markdown no tiene paginación. La versión en PDF (`Informe Bbiblioteca app.pdf`) incluye la misma información con número de página en el pie.
 <!-- TOC-FIN -->
 
 <div style="page-break-after: always;"></div>

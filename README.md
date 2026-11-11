@@ -32,7 +32,8 @@ BibliotecaApp/                 Proyecto principal (Windows Forms)
 BibliotecaApp.Pruebas/         Pruebas automáticas (validaciones, reglas y, con "bd", contra SQL Server)
 sql/Script_Biblioteca_Completo.sql   Base de datos, restricciones, datos de prueba y vistas
 docs/                          Diagramas (ER, clases, casos de uso, capas), capturas y evidencias de pruebas
-DOCUMENTACION.md / .pdf / .docx   Documento técnico del proyecto (Markdown, PDF y Word)
+DOCUMENTACION.md / .docx         Documento técnico del proyecto (Markdown y Word)
+Informe Bbiblioteca app.pdf      Documento técnico en PDF
 GUIA_GIT.md                    Flujo de trabajo con Git
 herramientas/                  Generan DOCUMENTACION.pdf y DOCUMENTACION.docx a partir del Markdown (ver herramientas/README.md)
 ```
@@ -86,4 +87,4 @@ Ver la carpeta [`docs/capturas`](docs/capturas) y la sección 13 de [`DOCUMENTAC
 
 ## Documentación
 
-El documento técnico completo (requerimientos, casos de uso, diagrama de clases, modelo E-R, diccionario de datos, arquitectura, pruebas, conclusiones y referencias APA) está en [`DOCUMENTACION.md`](DOCUMENTACION.md), en [`DOCUMENTACION.pdf`](DOCUMENTACION.pdf) y en Word, [`DOCUMENTACION.docx`](DOCUMENTACION.docx), editable, con tabla de contenido automática. Las versiones PDF y Word tienen numeración de páginas.
+El documento técnico completo (requerimientos, casos de uso, diagrama de clases, modelo E-R, diccionario de datos, arquitectura, pruebas, conclusiones y referencias APA) está en [`DOCUMENTACION.md`](DOCUMENTACION.md), en [`Informe Bbiblioteca app.pdf`](Informe%20Bbiblioteca%20app.pdf) y en Word, [`DOCUMENTACION.docx`](DOCUMENTACION.docx), editable, con tabla de contenido automática. Las versiones PDF y Word tienen numeración de páginas.
