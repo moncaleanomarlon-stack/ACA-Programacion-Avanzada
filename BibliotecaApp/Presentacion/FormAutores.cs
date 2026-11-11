@@ -13,6 +13,7 @@ namespace BibliotecaApp.Presentacion
 
         public FormAutores() : base("Autores")
         {
+            lblTituloDatos.Text = "Datos del autor";
             txtNombre = AgregarTexto("Nombre:", 50);
             txtApellido = AgregarTexto("Apellido:", 50);
             txtNacionalidad = AgregarTexto("Nacionalidad:", 50);

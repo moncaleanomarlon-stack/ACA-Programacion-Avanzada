@@ -15,10 +15,13 @@ namespace BibliotecaApp.Presentacion
     /// </summary>
     public abstract class FormCrudBase : Form
     {
-        protected static readonly Color ColorPrimario = Color.FromArgb(0, 120, 212);
-        protected static readonly Color ColorPeligro = Color.FromArgb(196, 43, 28);
+        protected static readonly Color ColorPrimario = Tema.Primario;
+        protected static readonly Color ColorPeligro = Tema.Peligro;
 
-        protected readonly GroupBox grpDatos = new GroupBox();
+        /// <summary>Panel izquierdo con el título, los campos y los botones de acción.</summary>
+        protected readonly Panel pnlDatos = new Panel();
+        protected readonly Label lblTituloDatos = new Label();
+        protected readonly ToolTip ayuda = new ToolTip();
         protected readonly TableLayoutPanel tblCampos = new TableLayoutPanel();
         protected readonly FlowLayoutPanel pnlBotones = new FlowLayoutPanel();
         protected readonly FlowLayoutPanel flpBusqueda = new FlowLayoutPanel();
@@ -45,23 +48,36 @@ namespace BibliotecaApp.Presentacion
             TopLevel = false;
             FormBorderStyle = FormBorderStyle.None;
             Dock = DockStyle.Fill;
-            Font = new Font("Segoe UI", 9.5f);
-            BackColor = Color.White;
+            Font = Tema.Normal;
+            BackColor = Tema.Fondo;
+            KeyPreview = true;   // atajos de teclado (ver ProcessCmdKey)
 
             ConstruirBusqueda();
             ConstruirTabla();
 
-            btnLimpiar = CrearBoton("Nuevo / Limpiar", Color.FromArgb(96, 106, 118));
-            btnGuardar = CrearBoton("Guardar", ColorPrimario);
-            btnActualizar = CrearBoton("Actualizar", Color.FromArgb(16, 124, 16));
-            btnEliminar = CrearBoton("Eliminar", ColorPeligro);
+            btnLimpiar = CrearBoton("Nuevo / Limpiar", Tema.Neutro);
+            btnGuardar = CrearBoton("Guardar", Tema.Primario);
+            btnActualizar = CrearBoton("Actualizar", Tema.Exito);
+            btnEliminar = CrearBoton("Eliminar", Tema.Peligro);
             ConstruirPanelDatos(titulo);
 
+            ayuda.SetToolTip(btnGuardar, "Registrar un nuevo registro (Ctrl+G)");
+            ayuda.SetToolTip(btnActualizar, "Guardar los cambios del registro seleccionado (Ctrl+G)");
+            ayuda.SetToolTip(btnEliminar, "Eliminar el registro seleccionado (Supr en la tabla)");
+            ayuda.SetToolTip(btnLimpiar, "Limpiar el formulario para un registro nuevo (Ctrl+N)");
+            ayuda.SetToolTip(btnBuscar, "Aplicar la búsqueda (Enter)");
+            ayuda.SetToolTip(btnMostrarTodos, "Quitar el texto de búsqueda y recargar (F5)");
+
             // Orden de adición: el control Fill primero, los acoplados a los bordes después.
+            Panel separador = new Panel();
+            separador.Dock = DockStyle.Left;
+            separador.Width = 1;
+            separador.BackColor = Tema.Borde;
             Controls.Add(dgvRegistros);
             Controls.Add(lblTotal);
             Controls.Add(flpBusqueda);
-            Controls.Add(grpDatos);
+            Controls.Add(separador);
+            Controls.Add(pnlDatos);
 
             btnLimpiar.Click += delegate { Limpiar(); };
             btnGuardar.Click += delegate { Ejecutar(delegate { Guardar(); FinalizarOperacion(); }); };
@@ -134,38 +150,38 @@ namespace BibliotecaApp.Presentacion
         {
             Button b = new Button();
             b.Text = texto;
-            b.Size = new Size(118, 34);
-            b.FlatStyle = FlatStyle.Flat;
-            b.FlatAppearance.BorderSize = 0;
-            b.BackColor = color;
-            b.ForeColor = Color.White;
+            b.Size = new Size(170, 36);   // dos botones por fila en el panel de datos
             b.Margin = new Padding(3, 3, 3, 6);
-            b.Cursor = Cursors.Hand;
+            Tema.EstilizarBoton(b, color);
             return b;
         }
 
         private void ConstruirBusqueda()
         {
             flpBusqueda.Dock = DockStyle.Top;
-            flpBusqueda.Height = 48;
-            flpBusqueda.Padding = new Padding(8, 8, 8, 0);
+            flpBusqueda.Height = 54;
+            flpBusqueda.Padding = new Padding(12, 12, 8, 0);
             flpBusqueda.WrapContents = false;
-            flpBusqueda.BackColor = Color.FromArgb(243, 243, 243);
+            flpBusqueda.BackColor = Tema.Fondo;
 
             lblBuscar.Text = "Buscar:";
             lblBuscar.AutoSize = true;
+            lblBuscar.ForeColor = Tema.TextoSuave;
             lblBuscar.Margin = new Padding(3, 7, 3, 0);
 
-            txtBuscar.Width = 220;
+            txtBuscar.Width = 180;
             txtBuscar.Margin = new Padding(3, 4, 3, 0);
+            txtBuscar.PlaceholderText = "Escriba y pulse Enter…";
 
             btnBuscar.Text = "Buscar";
-            btnBuscar.Size = new Size(80, 28);
-            btnBuscar.Margin = new Padding(3, 2, 3, 0);
+            btnBuscar.Size = new Size(80, 29);
+            btnBuscar.Margin = new Padding(3, 3, 3, 0);
+            Tema.EstilizarBotonSecundario(btnBuscar);
 
             btnMostrarTodos.Text = "Mostrar todos";
-            btnMostrarTodos.Size = new Size(110, 28);
-            btnMostrarTodos.Margin = new Padding(3, 2, 3, 0);
+            btnMostrarTodos.Size = new Size(112, 29);
+            btnMostrarTodos.Margin = new Padding(3, 3, 3, 0);
+            Tema.EstilizarBotonSecundario(btnMostrarTodos);
 
             flpBusqueda.Controls.Add(lblBuscar);
             flpBusqueda.Controls.Add(txtBuscar);
@@ -173,8 +189,10 @@ namespace BibliotecaApp.Presentacion
             flpBusqueda.Controls.Add(btnMostrarTodos);
 
             lblTotal.Dock = DockStyle.Bottom;
-            lblTotal.Height = 26;
+            lblTotal.Height = 30;
             lblTotal.TextAlign = ContentAlignment.MiddleLeft;
+            lblTotal.ForeColor = Tema.TextoSuave;
+            lblTotal.Padding = new Padding(10, 0, 0, 0);
         }
 
         private void ConstruirTabla()
@@ -183,29 +201,31 @@ namespace BibliotecaApp.Presentacion
             dgvRegistros.ReadOnly = true;
             dgvRegistros.AllowUserToAddRows = false;
             dgvRegistros.AllowUserToDeleteRows = false;
+            dgvRegistros.AllowUserToResizeRows = false;
             dgvRegistros.MultiSelect = false;
             dgvRegistros.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvRegistros.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvRegistros.RowHeadersVisible = false;
-            dgvRegistros.BackgroundColor = Color.White;
-            dgvRegistros.BorderStyle = BorderStyle.None;
-            dgvRegistros.EnableHeadersVisualStyles = false;
-            dgvRegistros.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(33, 43, 54);
-            dgvRegistros.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvRegistros.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(247, 249, 252);
+            Tema.EstilizarGrilla(dgvRegistros);
         }
 
         private void ConstruirPanelDatos(string titulo)
         {
-            grpDatos.Text = "Datos - " + titulo;
-            grpDatos.Dock = DockStyle.Left;
-            grpDatos.Width = 400;
-            grpDatos.Padding = new Padding(10);
+            pnlDatos.Dock = DockStyle.Left;
+            pnlDatos.Width = 380;
+            pnlDatos.Padding = new Padding(16, 10, 12, 10);
+            pnlDatos.BackColor = Tema.FondoSuave;
+
+            lblTituloDatos.Text = "Datos del registro";
+            lblTituloDatos.Dock = DockStyle.Top;
+            lblTituloDatos.Height = 34;
+            lblTituloDatos.Font = new Font(Tema.Familia, 11f, FontStyle.Bold);
+            lblTituloDatos.ForeColor = Tema.Texto;
+            lblTituloDatos.TextAlign = ContentAlignment.MiddleLeft;
 
             tblCampos.Dock = DockStyle.Fill;
             tblCampos.ColumnCount = 2;
-            tblCampos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
-            tblCampos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64f));
+            tblCampos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40f));
+            tblCampos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60f));
             tblCampos.AutoScroll = true;
 
             // Alto automático: el panel crece si los botones pasan a otra fila
@@ -220,8 +240,32 @@ namespace BibliotecaApp.Presentacion
             pnlBotones.Controls.Add(btnEliminar);
             pnlBotones.Controls.Add(btnLimpiar);
 
-            grpDatos.Controls.Add(tblCampos);
-            grpDatos.Controls.Add(pnlBotones);
+            pnlDatos.Controls.Add(tblCampos);
+            pnlDatos.Controls.Add(pnlBotones);
+            pnlDatos.Controls.Add(lblTituloDatos);
+        }
+
+        /// <summary>
+        /// Atajos: F5 recargar, Ctrl+N nuevo, Ctrl+G guardar o actualizar,
+        /// Supr eliminar (solo con el foco en la tabla, para no interferir al escribir).
+        /// </summary>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            switch (keyData)
+            {
+                case Keys.F5:
+                    txtBuscar.Clear(); Buscar(); return true;
+                case Keys.Control | Keys.N:
+                    btnLimpiar.PerformClick(); return true;
+                case Keys.Control | Keys.G:
+                    if (btnGuardar.Enabled) btnGuardar.PerformClick();
+                    else if (btnActualizar.Enabled) btnActualizar.PerformClick();
+                    return true;
+                case Keys.Delete:
+                    if (dgvRegistros.Focused && btnEliminar.Enabled) { btnEliminar.PerformClick(); return true; }
+                    break;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         // ------------------------------------------------------------------
@@ -232,6 +276,7 @@ namespace BibliotecaApp.Presentacion
             Label lbl = new Label();
             lbl.Text = etiqueta;
             lbl.AutoSize = true;
+            lbl.ForeColor = Tema.TextoSuave;
             // Arriba + izquierda: si la fila es más alta (p. ej. la última), la etiqueta
             // queda junto a su control y no centrada verticalmente.
             lbl.Anchor = AnchorStyles.Top | AnchorStyles.Left;
@@ -325,7 +370,7 @@ namespace BibliotecaApp.Presentacion
                     if (dgvRegistros.Columns.Contains(columna))
                         dgvRegistros.Columns[columna].Visible = false;
                 }
-                lblTotal.Text = "  Registros encontrados: " + tabla.Rows.Count;
+                lblTotal.Text = "Registros encontrados: " + tabla.Rows.Count;
                 dgvRegistros.ClearSelection();
             }
             finally

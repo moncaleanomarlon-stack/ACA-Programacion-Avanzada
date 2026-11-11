@@ -15,6 +15,7 @@ namespace BibliotecaApp.Presentacion
 
         public FormUsuarios() : base("Usuarios")
         {
+            lblTituloDatos.Text = "Datos del usuario";
             txtDocumento = AgregarTexto("Documento:", 20);
             txtNombre = AgregarTexto("Nombre:", 50);
             txtApellido = AgregarTexto("Apellido:", 50);

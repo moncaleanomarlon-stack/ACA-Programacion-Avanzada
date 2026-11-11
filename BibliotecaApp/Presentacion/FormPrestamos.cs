@@ -28,6 +28,7 @@ namespace BibliotecaApp.Presentacion
 
         public FormPrestamos() : base("Préstamos y devoluciones")
         {
+            lblTituloDatos.Text = "Datos del préstamo";
             cboUsuario = AgregarLista("Usuario:");
             cboLibro = AgregarLista("Libro:");
 
@@ -48,13 +49,31 @@ namespace BibliotecaApp.Presentacion
             AgregarCampo("Estado:", lblEstadoActual);
 
             btnGuardar.Text = "Registrar préstamo";
-            btnGuardar.Width = 150;
             btnActualizar.Text = "Actualizar fechas";
-            btnActualizar.Width = 130;
-            btnDevolver = AgregarBotonExtra("Registrar devolución", Color.FromArgb(202, 80, 16), AlPulsarDevolver);
-            btnDevolver.Width = 150;
+            btnDevolver = AgregarBotonExtra("Registrar devolución", Tema.Aviso, AlPulsarDevolver);
+            ayuda.SetToolTip(btnDevolver, "Marcar el préstamo seleccionado como devuelto y reponer el stock");
 
             cboFiltroEstado = AgregarCriterioBusqueda(PrestamoBLL.Estados);
+            // En la tabla basta la fecha; la hora exacta se ve en el formulario al seleccionar.
+            Tema.UsarFormatoFecha(dgvRegistros, "dd/MM/yyyy");
+
+            // Estado como insignia de color: ámbar = prestado, verde = devuelto
+            dgvRegistros.CellFormatting += delegate(object s, DataGridViewCellFormattingEventArgs e)
+            {
+                if (e.RowIndex < 0 || dgvRegistros.Columns[e.ColumnIndex].DataPropertyName != "Estado") return;
+                bool prestado = Convert.ToString(e.Value) == Prestamo.EstadoPrestado;
+                e.CellStyle.BackColor = prestado ? Tema.PrestadoFondo : Tema.DevueltoFondo;
+                e.CellStyle.ForeColor = prestado ? Tema.PrestadoTexto : Tema.DevueltoTexto;
+                e.CellStyle.SelectionBackColor = e.CellStyle.BackColor;
+                e.CellStyle.SelectionForeColor = e.CellStyle.ForeColor;
+                e.CellStyle.Font = Tema.Negrita;
+            };
+        }
+
+        /// <summary>Muestra solo los préstamos activos (acceso rápido desde Inicio).</summary>
+        public void MostrarSoloActivos()
+        {
+            cboFiltroEstado.SelectedItem = Prestamo.EstadoPrestado;
         }
 
         protected override string MensajeConfirmarEliminar
@@ -92,12 +111,9 @@ namespace BibliotecaApp.Presentacion
 
         protected override void Refrescar()
         {
+            // El ISBN ya aparece en la lista de libros; ocultarlo deja espacio a usuario y título.
             MostrarTabla(prestamoBll.Listar(cboFiltroEstado.SelectedItem.ToString(), txtBuscar.Text),
-                "UsuarioID", "LibroID");
-            if (dgvRegistros.Columns.Contains("FechaPrestamo"))
-                dgvRegistros.Columns["FechaPrestamo"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
-            if (dgvRegistros.Columns.Contains("FechaDevolucion"))
-                dgvRegistros.Columns["FechaDevolucion"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+                "UsuarioID", "LibroID", "ISBN");
         }
 
         protected override void Guardar()

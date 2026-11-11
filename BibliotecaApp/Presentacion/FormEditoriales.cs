@@ -13,6 +13,7 @@ namespace BibliotecaApp.Presentacion
 
         public FormEditoriales() : base("Editoriales")
         {
+            lblTituloDatos.Text = "Datos de la editorial";
             txtNombre = AgregarTexto("Nombre:", 100);
             txtTelefono = AgregarTexto("Teléfono:", 20);
             txtEmail = AgregarTexto("Correo electrónico:", 100);

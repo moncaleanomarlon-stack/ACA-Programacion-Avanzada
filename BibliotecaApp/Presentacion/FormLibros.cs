@@ -24,6 +24,7 @@ namespace BibliotecaApp.Presentacion
 
         public FormLibros() : base("Libros")
         {
+            lblTituloDatos.Text = "Datos del libro";
             txtIsbn = AgregarTexto("ISBN (código):", 20);
             txtTitulo = AgregarTexto("Título:", 150);
             cboAutor = AgregarLista("Autor:");
@@ -41,6 +42,19 @@ namespace BibliotecaApp.Presentacion
             AgregarCampo("Ejemplares disponibles:", numDisponibles);
 
             cboCriterio = AgregarCriterioBusqueda(LibroBLL.Criterios);
+            txtIsbn.PlaceholderText = "Ej.: 978-958-42-2000-4";
+
+            // Libros sin ejemplares disponibles: cifra en rojo y negrita
+            dgvRegistros.CellFormatting += delegate(object s, DataGridViewCellFormattingEventArgs e)
+            {
+                if (e.RowIndex < 0 || dgvRegistros.Columns[e.ColumnIndex].DataPropertyName != "Disponibles") return;
+                if (Convert.ToInt32(e.Value) == 0)
+                {
+                    e.CellStyle.ForeColor = Tema.SinStockTexto;
+                    e.CellStyle.SelectionForeColor = Tema.SinStockTexto;
+                    e.CellStyle.Font = Tema.Negrita;
+                }
+            };
         }
 
         protected override void PrepararControles()

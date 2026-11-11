@@ -23,18 +23,19 @@ namespace BibliotecaApp.Presentacion
             TopLevel = false;
             FormBorderStyle = FormBorderStyle.None;
             Dock = DockStyle.Fill;
-            Font = new Font("Segoe UI", 9.5f);
-            BackColor = Color.White;
+            Font = Tema.Normal;
+            BackColor = Tema.Fondo;
 
             FlowLayoutPanel barra = new FlowLayoutPanel();
             barra.Dock = DockStyle.Top;
-            barra.Height = 48;
-            barra.Padding = new Padding(8, 8, 8, 0);
-            barra.BackColor = Color.FromArgb(243, 243, 243);
+            barra.Height = 54;
+            barra.Padding = new Padding(12, 12, 8, 0);
+            barra.BackColor = Tema.Fondo;
 
             Label lbl = new Label();
             lbl.Text = "Reporte:";
             lbl.AutoSize = true;
+            lbl.ForeColor = Tema.TextoSuave;
             lbl.Margin = new Padding(3, 7, 3, 0);
 
             cboReporte.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -44,12 +45,14 @@ namespace BibliotecaApp.Presentacion
             cboReporte.SelectedIndex = 0;
 
             btnGenerar.Text = "Generar";
-            btnGenerar.Size = new Size(90, 28);
-            btnGenerar.Margin = new Padding(3, 2, 3, 0);
+            btnGenerar.Size = new Size(90, 29);
+            btnGenerar.Margin = new Padding(3, 3, 3, 0);
+            Tema.EstilizarBotonSecundario(btnGenerar);
 
             btnExportar.Text = "Exportar a CSV";
-            btnExportar.Size = new Size(120, 28);
-            btnExportar.Margin = new Padding(3, 2, 3, 0);
+            btnExportar.Size = new Size(130, 29);
+            btnExportar.Margin = new Padding(3, 3, 3, 0);
+            Tema.EstilizarBoton(btnExportar, Tema.Exito);
 
             barra.Controls.Add(lbl);
             barra.Controls.Add(cboReporte);
@@ -60,19 +63,16 @@ namespace BibliotecaApp.Presentacion
             dgvReporte.ReadOnly = true;
             dgvReporte.AllowUserToAddRows = false;
             dgvReporte.AllowUserToDeleteRows = false;
+            dgvReporte.AllowUserToResizeRows = false;
             dgvReporte.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvReporte.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvReporte.RowHeadersVisible = false;
-            dgvReporte.BackgroundColor = Color.White;
-            dgvReporte.BorderStyle = BorderStyle.None;
-            dgvReporte.EnableHeadersVisualStyles = false;
-            dgvReporte.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(33, 43, 54);
-            dgvReporte.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvReporte.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(247, 249, 252);
+            Tema.EstilizarGrilla(dgvReporte);   // también aplica títulos legibles y formato de fechas
 
             lblTotal.Dock = DockStyle.Bottom;
-            lblTotal.Height = 26;
+            lblTotal.Height = 30;
             lblTotal.TextAlign = ContentAlignment.MiddleLeft;
+            lblTotal.ForeColor = Tema.TextoSuave;
+            lblTotal.Padding = new Padding(10, 0, 0, 0);
 
             Controls.Add(dgvReporte);
             Controls.Add(lblTotal);
@@ -90,12 +90,8 @@ namespace BibliotecaApp.Presentacion
             {
                 DataTable tabla = reporteBll.Generar(cboReporte.SelectedItem.ToString());
                 dgvReporte.DataSource = tabla;
-                foreach (DataGridViewColumn col in dgvReporte.Columns)
-                {
-                    if (col.ValueType == typeof(DateTime))
-                        col.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
-                }
-                lblTotal.Text = "  Registros: " + tabla.Rows.Count;
+                Tema.AplicarTitulos(dgvReporte);
+                lblTotal.Text = "Registros: " + tabla.Rows.Count;
             }
             catch (Exception ex)
             {
