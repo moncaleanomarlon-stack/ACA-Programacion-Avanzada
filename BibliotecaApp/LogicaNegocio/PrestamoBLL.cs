@@ -34,8 +34,10 @@ namespace BibliotecaApp.LogicaNegocio
                     "El usuario alcanzó el máximo de " + MaxPrestamosActivosPorUsuario +
                     " préstamos activos. Debe devolver un libro antes de solicitar otro.");
 
-            // Existencias y existencia de usuario/libro se verifican de forma atómica en el DAL.
-            return dal.RegistrarPrestamo(usuarioId, libroId, fechaPrestamo);
+            // Las comprobaciones anteriores dan un aviso rápido; el DAL las repite dentro
+            // de la transacción (con bloqueo) junto con usuario, libro y existencias,
+            // para que dos préstamos simultáneos no puedan saltarse las reglas.
+            return dal.RegistrarPrestamo(usuarioId, libroId, fechaPrestamo, MaxPrestamosActivosPorUsuario);
         }
 
         public void RegistrarDevolucion(int prestamoId, DateTime fechaDevolucion)

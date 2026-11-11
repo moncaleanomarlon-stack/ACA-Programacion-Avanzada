@@ -50,7 +50,7 @@ namespace BibliotecaApp.AccesoDatos
         }
 
         // ------------------------------------------------------------------
-        // Auxiliar para crear comandos dentro de una transacción
+        // Auxiliares para trabajar dentro de una transacción
         // ------------------------------------------------------------------
         private static SqlCommand Comando(string sql, SqlConnection con, SqlTransaction tx,
                                           params SqlParameter[] parametros)
@@ -60,110 +60,147 @@ namespace BibliotecaApp.AccesoDatos
             return cmd;
         }
 
-        /// <summary>Registra el préstamo y descuenta una unidad del stock (transacción).</summary>
-        public int RegistrarPrestamo(int usuarioId, int libroId, DateTime fechaPrestamo)
+        /// <summary>
+        /// Abre la conexión y la transacción, ejecuta la operación y confirma.
+        /// Ante cualquier error deshace los cambios. Si el Rollback también falla
+        /// (p. ej. se perdió la conexión) se conserva el error original, que es el
+        /// que explica qué pasó. Los errores de SQL Server se traducen a mensajes claros.
+        /// </summary>
+        private T EnTransaccion<T>(Func<SqlConnection, SqlTransaction, T> operacion)
         {
             try
             {
                 using (SqlConnection con = conexion.ObtenerConexion())
                 {
                     con.Open();
-                    SqlTransaction tx = con.BeginTransaction();
-                    try
+                    using (SqlTransaction tx = con.BeginTransaction())
                     {
-                        // 1. El usuario debe existir
-                        int usuarios = Convert.ToInt32(Comando(
-                            "SELECT COUNT(*) FROM Usuarios WHERE UsuarioID = @U", con, tx,
-                            ConexionBD.Param("@U", usuarioId)).ExecuteScalar());
-                        if (usuarios == 0)
-                            throw new ReglaNegocioException("El usuario seleccionado no existe.");
-
-                        // 2. El libro debe existir; se bloquea la fila para evitar que dos
-                        //    préstamos simultáneos consuman la misma última existencia.
-                        object stockObj = Comando(
-                            "SELECT Stock FROM Libros WITH (UPDLOCK, ROWLOCK) WHERE LibroID = @L", con, tx,
-                            ConexionBD.Param("@L", libroId)).ExecuteScalar();
-                        if (stockObj == null)
-                            throw new ReglaNegocioException("El libro seleccionado no existe.");
-                        if (Convert.ToInt32(stockObj) <= 0)
-                            throw new ReglaNegocioException(
-                                "El libro seleccionado no cuenta con existencias disponibles.");
-
-                        // 3. Insertar préstamo
-                        int id = Convert.ToInt32(Comando(
-                            "INSERT INTO Prestamos (UsuarioID, LibroID, FechaPrestamo, FechaDevolucion, Estado) " +
-                            "VALUES (@U, @L, @F, NULL, 'Prestado'); SELECT CAST(SCOPE_IDENTITY() AS INT);",
-                            con, tx,
-                            ConexionBD.Param("@U", usuarioId),
-                            ConexionBD.Param("@L", libroId),
-                            ConexionBD.Param("@F", fechaPrestamo)).ExecuteScalar());
-
-                        // 4. Descontar stock
-                        Comando("UPDATE Libros SET Stock = Stock - 1 WHERE LibroID = @L", con, tx,
-                            ConexionBD.Param("@L", libroId)).ExecuteNonQuery();
-
-                        tx.Commit();
-                        return id;
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
+                        try
+                        {
+                            T resultado = operacion(con, tx);
+                            tx.Commit();
+                            return resultado;
+                        }
+                        catch
+                        {
+                            try { tx.Rollback(); }
+                            catch (Exception) { /* se relanza el error original */ }
+                            throw;
+                        }
                     }
                 }
             }
             catch (SqlException ex) { throw ConexionBD.Traducir(ex); }
         }
 
+        private void EnTransaccion(Action<SqlConnection, SqlTransaction> operacion)
+        {
+            EnTransaccion<bool>((con, tx) => { operacion(con, tx); return true; });
+        }
+
+        // ------------------------------------------------------------------
+        // Operaciones
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Registra el préstamo y descuenta una unidad del stock (transacción).
+        /// Las reglas "mismo libro activo" y "máximo de préstamos activos" se
+        /// verifican aquí, bloqueando los préstamos del usuario, para que dos
+        /// registros simultáneos no puedan saltárselas.
+        /// </summary>
+        public int RegistrarPrestamo(int usuarioId, int libroId, DateTime fechaPrestamo, int maxActivosPorUsuario)
+        {
+            return EnTransaccion((con, tx) =>
+            {
+                // 1. El usuario debe existir
+                int usuarios = Convert.ToInt32(Comando(
+                    "SELECT COUNT(*) FROM Usuarios WHERE UsuarioID = @U", con, tx,
+                    ConexionBD.Param("@U", usuarioId)).ExecuteScalar());
+                if (usuarios == 0)
+                    throw new ReglaNegocioException("El usuario seleccionado no existe.");
+
+                // 2. Préstamos activos del usuario. UPDLOCK + HOLDLOCK bloquea ese rango
+                //    hasta el Commit: otro préstamo del mismo usuario espera su turno.
+                DataTable activos = new DataTable();
+                using (SqlDataAdapter da = new SqlDataAdapter(Comando(
+                    "SELECT LibroID FROM Prestamos WITH (UPDLOCK, HOLDLOCK) " +
+                    "WHERE UsuarioID = @U AND Estado = 'Prestado'", con, tx,
+                    ConexionBD.Param("@U", usuarioId))))
+                {
+                    da.Fill(activos);
+                }
+                foreach (DataRow fila in activos.Rows)
+                {
+                    if ((int)fila["LibroID"] == libroId)
+                        throw new ReglaNegocioException(
+                            "El usuario ya tiene prestado este libro y aún no lo ha devuelto.");
+                }
+                if (activos.Rows.Count >= maxActivosPorUsuario)
+                    throw new ReglaNegocioException(
+                        "El usuario alcanzó el máximo de " + maxActivosPorUsuario +
+                        " préstamos activos. Debe devolver un libro antes de solicitar otro.");
+
+                // 3. El libro debe existir; se bloquea la fila para evitar que dos
+                //    préstamos simultáneos consuman la misma última existencia.
+                object stockObj = Comando(
+                    "SELECT Stock FROM Libros WITH (UPDLOCK, ROWLOCK) WHERE LibroID = @L", con, tx,
+                    ConexionBD.Param("@L", libroId)).ExecuteScalar();
+                if (stockObj == null)
+                    throw new ReglaNegocioException("El libro seleccionado no existe.");
+                if (Convert.ToInt32(stockObj) <= 0)
+                    throw new ReglaNegocioException(
+                        "El libro seleccionado no cuenta con existencias disponibles.");
+
+                // 4. Insertar préstamo
+                int id = Convert.ToInt32(Comando(
+                    "INSERT INTO Prestamos (UsuarioID, LibroID, FechaPrestamo, FechaDevolucion, Estado) " +
+                    "VALUES (@U, @L, @F, NULL, 'Prestado'); SELECT CAST(SCOPE_IDENTITY() AS INT);",
+                    con, tx,
+                    ConexionBD.Param("@U", usuarioId),
+                    ConexionBD.Param("@L", libroId),
+                    ConexionBD.Param("@F", fechaPrestamo)).ExecuteScalar());
+
+                // 5. Descontar stock
+                Comando("UPDATE Libros SET Stock = Stock - 1 WHERE LibroID = @L", con, tx,
+                    ConexionBD.Param("@L", libroId)).ExecuteNonQuery();
+
+                return id;
+            });
+        }
+
         /// <summary>Registra la devolución: estado 'Devuelto', fecha y +1 al stock (transacción).</summary>
         public void RegistrarDevolucion(int prestamoId, DateTime fechaDevolucion)
         {
-            try
+            EnTransaccion((con, tx) =>
             {
-                using (SqlConnection con = conexion.ObtenerConexion())
+                // El libro y el estado se leen del propio préstamo (no del formulario)
+                DataTable datos = new DataTable();
+                using (SqlDataAdapter da = new SqlDataAdapter(Comando(
+                    "SELECT LibroID, Estado, FechaPrestamo FROM Prestamos WITH (UPDLOCK, ROWLOCK) " +
+                    "WHERE PrestamoID = @P", con, tx, ConexionBD.Param("@P", prestamoId))))
                 {
-                    con.Open();
-                    SqlTransaction tx = con.BeginTransaction();
-                    try
-                    {
-                        // El libro y el estado se leen del propio préstamo (no del formulario)
-                        DataTable datos = new DataTable();
-                        using (SqlDataAdapter da = new SqlDataAdapter(Comando(
-                            "SELECT LibroID, Estado, FechaPrestamo FROM Prestamos WITH (UPDLOCK, ROWLOCK) " +
-                            "WHERE PrestamoID = @P", con, tx, ConexionBD.Param("@P", prestamoId))))
-                        {
-                            da.Fill(datos);
-                        }
-                        if (datos.Rows.Count == 0)
-                            throw new ReglaNegocioException("El préstamo seleccionado no existe.");
-
-                        DataRow fila = datos.Rows[0];
-                        if ((string)fila["Estado"] == Prestamo.EstadoDevuelto)
-                            throw new ReglaNegocioException("Este préstamo ya fue devuelto anteriormente.");
-                        if (fechaDevolucion < (DateTime)fila["FechaPrestamo"])
-                            throw new ReglaNegocioException(
-                                "La fecha de devolución no puede ser anterior a la fecha del préstamo.");
-
-                        int libroId = (int)fila["LibroID"];
-
-                        Comando("UPDATE Prestamos SET FechaDevolucion = @F, Estado = 'Devuelto' WHERE PrestamoID = @P",
-                            con, tx,
-                            ConexionBD.Param("@F", fechaDevolucion),
-                            ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
-
-                        Comando("UPDATE Libros SET Stock = Stock + 1 WHERE LibroID = @L", con, tx,
-                            ConexionBD.Param("@L", libroId)).ExecuteNonQuery();
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
+                    da.Fill(datos);
                 }
-            }
-            catch (SqlException ex) { throw ConexionBD.Traducir(ex); }
+                if (datos.Rows.Count == 0)
+                    throw new ReglaNegocioException("El préstamo seleccionado no existe.");
+
+                DataRow fila = datos.Rows[0];
+                if ((string)fila["Estado"] == Prestamo.EstadoDevuelto)
+                    throw new ReglaNegocioException("Este préstamo ya fue devuelto anteriormente.");
+                if (fechaDevolucion < (DateTime)fila["FechaPrestamo"])
+                    throw new ReglaNegocioException(
+                        "La fecha de devolución no puede ser anterior a la fecha del préstamo.");
+
+                int libroId = (int)fila["LibroID"];
+
+                Comando("UPDATE Prestamos SET FechaDevolucion = @F, Estado = 'Devuelto' WHERE PrestamoID = @P",
+                    con, tx,
+                    ConexionBD.Param("@F", fechaDevolucion),
+                    ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
+
+                Comando("UPDATE Libros SET Stock = Stock + 1 WHERE LibroID = @L", con, tx,
+                    ConexionBD.Param("@L", libroId)).ExecuteNonQuery();
+            });
         }
 
         /// <summary>
@@ -172,45 +209,29 @@ namespace BibliotecaApp.AccesoDatos
         /// </summary>
         public void ActualizarFechas(int prestamoId, DateTime fechaPrestamo, DateTime? fechaDevolucion)
         {
-            try
+            EnTransaccion((con, tx) =>
             {
-                using (SqlConnection con = conexion.ObtenerConexion())
-                {
-                    con.Open();
-                    SqlTransaction tx = con.BeginTransaction();
-                    try
-                    {
-                        object estadoObj = Comando(
-                            "SELECT Estado FROM Prestamos WITH (UPDLOCK) WHERE PrestamoID = @P", con, tx,
-                            ConexionBD.Param("@P", prestamoId)).ExecuteScalar();
-                        if (estadoObj == null)
-                            throw new ReglaNegocioException("El préstamo seleccionado no existe.");
+                object estadoObj = Comando(
+                    "SELECT Estado FROM Prestamos WITH (UPDLOCK) WHERE PrestamoID = @P", con, tx,
+                    ConexionBD.Param("@P", prestamoId)).ExecuteScalar();
+                if (estadoObj == null)
+                    throw new ReglaNegocioException("El préstamo seleccionado no existe.");
 
-                        bool devuelto = (string)estadoObj == Prestamo.EstadoDevuelto;
-                        if (!devuelto && fechaDevolucion.HasValue)
-                            throw new ReglaNegocioException(
-                                "Un préstamo en estado 'Prestado' no puede tener fecha de devolución. " +
-                                "Use la opción 'Registrar devolución'.");
-                        if (devuelto && !fechaDevolucion.HasValue)
-                            throw new ReglaNegocioException(
-                                "Un préstamo 'Devuelto' debe conservar su fecha de devolución.");
+                bool devuelto = (string)estadoObj == Prestamo.EstadoDevuelto;
+                if (!devuelto && fechaDevolucion.HasValue)
+                    throw new ReglaNegocioException(
+                        "Un préstamo en estado 'Prestado' no puede tener fecha de devolución. " +
+                        "Use la opción 'Registrar devolución'.");
+                if (devuelto && !fechaDevolucion.HasValue)
+                    throw new ReglaNegocioException(
+                        "Un préstamo 'Devuelto' debe conservar su fecha de devolución.");
 
-                        Comando("UPDATE Prestamos SET FechaPrestamo = @FP, FechaDevolucion = @FD WHERE PrestamoID = @P",
-                            con, tx,
-                            ConexionBD.Param("@FP", fechaPrestamo),
-                            ConexionBD.Param("@FD", fechaDevolucion.HasValue ? (object)fechaDevolucion.Value : null),
-                            ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                }
-            }
-            catch (SqlException ex) { throw ConexionBD.Traducir(ex); }
+                Comando("UPDATE Prestamos SET FechaPrestamo = @FP, FechaDevolucion = @FD WHERE PrestamoID = @P",
+                    con, tx,
+                    ConexionBD.Param("@FP", fechaPrestamo),
+                    ConexionBD.Param("@FD", fechaDevolucion.HasValue ? (object)fechaDevolucion.Value : null),
+                    ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
+            });
         }
 
         /// <summary>
@@ -219,43 +240,27 @@ namespace BibliotecaApp.AccesoDatos
         /// </summary>
         public void Eliminar(int prestamoId)
         {
-            try
+            EnTransaccion((con, tx) =>
             {
-                using (SqlConnection con = conexion.ObtenerConexion())
+                DataTable datos = new DataTable();
+                using (SqlDataAdapter da = new SqlDataAdapter(Comando(
+                    "SELECT LibroID, Estado FROM Prestamos WITH (UPDLOCK, ROWLOCK) WHERE PrestamoID = @P",
+                    con, tx, ConexionBD.Param("@P", prestamoId))))
                 {
-                    con.Open();
-                    SqlTransaction tx = con.BeginTransaction();
-                    try
-                    {
-                        DataTable datos = new DataTable();
-                        using (SqlDataAdapter da = new SqlDataAdapter(Comando(
-                            "SELECT LibroID, Estado FROM Prestamos WITH (UPDLOCK, ROWLOCK) WHERE PrestamoID = @P",
-                            con, tx, ConexionBD.Param("@P", prestamoId))))
-                        {
-                            da.Fill(datos);
-                        }
-                        if (datos.Rows.Count == 0)
-                            throw new ReglaNegocioException("El préstamo seleccionado no existe.");
-
-                        if ((string)datos.Rows[0]["Estado"] == Prestamo.EstadoPrestado)
-                        {
-                            Comando("UPDATE Libros SET Stock = Stock + 1 WHERE LibroID = @L", con, tx,
-                                ConexionBD.Param("@L", (int)datos.Rows[0]["LibroID"])).ExecuteNonQuery();
-                        }
-
-                        Comando("DELETE FROM Prestamos WHERE PrestamoID = @P", con, tx,
-                            ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
+                    da.Fill(datos);
                 }
-            }
-            catch (SqlException ex) { throw ConexionBD.Traducir(ex); }
+                if (datos.Rows.Count == 0)
+                    throw new ReglaNegocioException("El préstamo seleccionado no existe.");
+
+                if ((string)datos.Rows[0]["Estado"] == Prestamo.EstadoPrestado)
+                {
+                    Comando("UPDATE Libros SET Stock = Stock + 1 WHERE LibroID = @L", con, tx,
+                        ConexionBD.Param("@L", (int)datos.Rows[0]["LibroID"])).ExecuteNonQuery();
+                }
+
+                Comando("DELETE FROM Prestamos WHERE PrestamoID = @P", con, tx,
+                    ConexionBD.Param("@P", prestamoId)).ExecuteNonQuery();
+            });
         }
     }
 }
