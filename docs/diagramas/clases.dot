@@ -1,0 +1,12 @@
+digraph Clases {
+  rankdir=BT; fontname="Helvetica"; node [shape=record fontname="Helvetica" fontsize=10 style=filled fillcolor="#f7f9fc"]; edge [fontname="Helvetica" fontsize=9];
+  Persona [label="{«abstract»\nPersona|+ Nombre : string\l+ Apellido : string\l+ NombreCompleto : string\l|+ Describir() : string «abstract»\l+ ToString() : string\l}"];
+  Autor [label="{Autor|+ AutorID : int\l+ Nacionalidad : string\l|+ Describir() : string\l}"];
+  Usuario [label="{Usuario|+ UsuarioID : int\l+ Documento : string\l+ Telefono : string\l+ Email : string\l|+ Describir() : string\l}"];
+  Editorial [label="{Editorial|+ EditorialID : int\l+ Nombre : string\l+ Telefono : string\l+ Email : string\l|}"];
+  Libro [label="{Libro|+ LibroID : int\l+ ISBN : string\l+ Titulo : string\l+ AutorID : int\l+ EditorialID : int\l+ AnioPublicacion : int\l+ Stock : int\l+ TieneExistencias : bool\l|}"];
+  Prestamo [label="{Prestamo|+ PrestamoID : int\l+ UsuarioID : int\l+ LibroID : int\l+ FechaPrestamo : DateTime\l+ FechaDevolucion : DateTime?\l+ Estado : string\l+ EstaDevuelto : bool\l|}"];
+  Autor -> Persona [arrowhead=empty]; Usuario -> Persona [arrowhead=empty];
+  Libro -> Autor [label="N..1" arrowhead=vee style=dashed]; Libro -> Editorial [label="N..1" arrowhead=vee style=dashed];
+  Prestamo -> Usuario [label="N..1" arrowhead=vee style=dashed]; Prestamo -> Libro [label="N..1" arrowhead=vee style=dashed];
+}

@@ -1,0 +1,14 @@
+digraph CU {
+  rankdir=LR; fontname="Helvetica"; node [fontname="Helvetica" fontsize=10]; edge [fontname="Helvetica" fontsize=9 arrowhead=none];
+  Bibliotecario [shape=box style="filled" fillcolor="#ffe9a8" label="Actor:\nBibliotecario"];
+  node [shape=ellipse style=filled fillcolor="#e8f1fb"];
+  subgraph cluster_sis { label="Sistema de Gestión de Biblioteca"; style=rounded; color="#555555";
+    CU1 [label="CU01\nNavegar por los módulos"]; CU2 [label="CU02\nGestionar libros"]; CU3 [label="CU03\nGestionar autores"];
+    CU4 [label="CU04\nGestionar editoriales"]; CU5 [label="CU05\nGestionar usuarios"]; CU6 [label="CU06\nRegistrar préstamo"];
+    CU7 [label="CU07\nRegistrar devolución"]; CU8 [label="CU08\nConsultar / editar / eliminar\npréstamos"]; CU9 [label="CU09\nConsultar reportes"];
+    CU10 [label="CU10\nBuscar libros" fillcolor="#f3f3f3"]; CU11 [label="CU11\nExportar reporte a CSV" fillcolor="#f3f3f3"];
+  }
+  Bibliotecario -> CU1; Bibliotecario -> CU2; Bibliotecario -> CU3; Bibliotecario -> CU4; Bibliotecario -> CU5;
+  Bibliotecario -> CU6; Bibliotecario -> CU7; Bibliotecario -> CU8; Bibliotecario -> CU9;
+  CU2 -> CU10 [style=dashed arrowhead=vee label="«include»"]; CU11 -> CU9 [style=dashed arrowhead=vee label="«extend»"];
+}

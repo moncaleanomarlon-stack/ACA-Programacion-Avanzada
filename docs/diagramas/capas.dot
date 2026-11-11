@@ -1,0 +1,10 @@
+digraph Capas {
+  rankdir=TB; fontname="Helvetica"; node [shape=box style="filled,rounded" fontname="Helvetica" fontsize=11 width=5.2]; edge [fontname="Helvetica" fontsize=9];
+  P [label="PRESENTACIÓN (Windows Forms)\nFormPrincipal · FormInicio · FormLibros · FormAutores · FormEditoriales\nFormUsuarios · FormPrestamos · FormReportes · FormCrudBase · Mensajes" fillcolor="#cfe8ff"];
+  N [label="LÓGICA DE NEGOCIO\nLibroBLL · AutorBLL · EditorialBLL · UsuarioBLL · PrestamoBLL · ReporteBLL · Validador" fillcolor="#d9f2d9"];
+  D [label="ACCESO A DATOS\nConexionBD · LibroDAL · AutorDAL · EditorialDAL · UsuarioDAL · PrestamoDAL · ReporteDAL" fillcolor="#fff0c2"];
+  B [label="BASE DE DATOS (SQL Server) — BibliotecaDB\n5 tablas · claves PK/FK · UNIQUE · CHECK · 7 vistas" fillcolor="#f5d5d5"];
+  E [label="ENTIDADES (POO)\nPersona · Autor · Usuario · Editorial · Libro · Prestamo · ReglaNegocioException" fillcolor="#e6e0f5" width=3];
+  P -> N [label="llama"]; N -> D [label="llama"]; D -> B [label="SQL parametrizado"];
+  E -> N [style=dashed arrowhead=none]; E -> P [style=dashed arrowhead=none]; E -> D [style=dashed arrowhead=none];
+}
