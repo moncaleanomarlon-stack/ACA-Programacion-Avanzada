@@ -42,8 +42,8 @@ GUIA_GIT.md                    Flujo de commits sugerido
 
 1. Clonar el repositorio:
    ```bash
-   git clone https://github.com/<tu-usuario>/SistemaBiblioteca.git
-   cd SistemaBiblioteca
+   git clone https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada.git
+   cd ACA-Programacion-Avanzada
    ```
 2. Abrir `sql/Script_Biblioteca_Completo.sql` en SSMS y **ejecutarlo completo** (crea `BibliotecaDB`, tablas, datos de prueba y vistas).
 3. Revisar la cadena de conexión en `BibliotecaApp/App.config` y ajustar `Server` si es necesario:

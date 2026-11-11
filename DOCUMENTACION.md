@@ -436,7 +436,7 @@ El proyecto se gestiona con Git y se publica en GitHub. El repositorio contiene 
 
 La guía [`GUIA_GIT.md`](GUIA_GIT.md) describe el flujo de trabajo y una secuencia de commits descriptivos por avance. El historial se evidencia con `git log --oneline --graph` y con la pestaña *Commits* del repositorio en GitHub.
 
-**Enlace del repositorio:** `https://github.com/<tu-usuario>/SistemaBiblioteca` *(reemplazar por el enlace real)*
+**Enlace del repositorio:** [https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada](https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada)
 
 ## 16. Conclusiones
 

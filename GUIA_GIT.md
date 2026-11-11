@@ -9,7 +9,7 @@ git init
 git branch -M main
 git add .gitignore README.md
 git commit -m "docs: crea repositorio y README inicial"
-git remote add origin https://github.com/<tu-usuario>/SistemaBiblioteca.git
+git remote add origin https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada.git
 git push -u origin main
 ```
 
