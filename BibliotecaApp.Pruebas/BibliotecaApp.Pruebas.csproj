@@ -1,18 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Pruebas automáticas de las reglas de validación y de las entidades.
-       No requieren SQL Server. Ver README.md (seccion "Instrucciones de ejecucion"). -->
+  <!-- Pruebas automáticas. Por defecto solo prueban reglas que no necesitan
+       SQL Server (validaciones, entidades, reglas de negocio previas a la BD).
+       Con el argumento bd también prueban préstamos, devoluciones y duplicados
+       contra BibliotecaDB, creando y luego borrando sus propios datos.
+       Ver README.md (seccion "Instrucciones de ejecucion"). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <RootNamespace>BibliotecaApp.Pruebas</RootNamespace>
+    <!-- Misma cadena de conexión que la aplicación -->
+    <AppConfig>..\BibliotecaApp\App.config</AppConfig>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\BibliotecaApp\Entidades\*.cs" />
-    <Compile Include="..\BibliotecaApp\LogicaNegocio\Validador.cs" />
+    <!-- Referencia al proyecto principal: se prueban sus clases reales (Entidades,
+         LogicaNegocio y AccesoDatos) en lugar de copias de los archivos. -->
+    <ProjectReference Include="..\BibliotecaApp\BibliotecaApp.csproj" />
   </ItemGroup>
 
 </Project>

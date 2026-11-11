@@ -25,7 +25,7 @@ BibliotecaApp/                 Proyecto principal (Windows Forms)
   LogicaNegocio/               Validador y un BLL por módulo
   Presentacion/                Formularios (FormCrudBase es la base de los CRUD)
   App.config                   Cadena de conexión
-BibliotecaApp.Pruebas/         Pruebas automáticas de validaciones y entidades
+BibliotecaApp.Pruebas/         Pruebas automáticas (validaciones, reglas y, con "bd", contra SQL Server)
 sql/Script_Biblioteca_Completo.sql   Base de datos, restricciones, datos de prueba y vistas
 docs/                          Diagramas (ER, clases, casos de uso, capas) y capturas
 DOCUMENTACION.md / .pdf        Documento técnico del proyecto
@@ -58,9 +58,15 @@ GUIA_GIT.md                    Flujo de commits sugerido
    ```bash
    dotnet run --project BibliotecaApp
    ```
-5. (Opcional) Ejecutar las pruebas automáticas, que no requieren base de datos:
+5. (Opcional) Ejecutar las pruebas automáticas. Sin argumentos no requieren base de datos
+   (validaciones, entidades y reglas de préstamo):
    ```bash
    dotnet run --project BibliotecaApp.Pruebas
+   ```
+   Con el argumento `bd` además prueban préstamos, devoluciones, stock y duplicados contra
+   `BibliotecaDB`; crean sus propios datos y los borran al terminar:
+   ```bash
+   dotnet run --project BibliotecaApp.Pruebas -- bd
    ```
 
 La barra de estado de la ventana principal indica si la conexión con SQL Server fue exitosa.
