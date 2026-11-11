@@ -34,10 +34,13 @@ namespace BibliotecaApp.Presentacion
             lblMensaje.MaximumSize = new Size(900, 0);
             lblMensaje.Location = new Point(26, 70);
 
-            pnlIndicadores.Location = new Point(24, 120);
-            pnlIndicadores.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            pnlIndicadores.Size = new Size(900, 400);
+            // Fill + relleno superior: el panel toma el ancho real del área y las
+            // tarjetas pasan a otra fila. Con Anchor sobre un tamaño fijo el panel
+            // quedaba más ancho que la ventana y las últimas tarjetas no se veían.
+            pnlIndicadores.Dock = DockStyle.Fill;
+            pnlIndicadores.Padding = new Padding(16, 112, 16, 16);
             pnlIndicadores.WrapContents = true;
+            pnlIndicadores.AutoScroll = true;
 
             Controls.Add(titulo);
             Controls.Add(lblMensaje);

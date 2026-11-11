@@ -92,8 +92,8 @@ namespace BibliotecaApp.Presentacion
         {
             txtIsbn.Clear();
             txtTitulo.Clear();
-            cboAutor.SelectedIndex = -1;
-            cboEditorial.SelectedIndex = -1;
+            QuitarSeleccion(cboAutor);
+            QuitarSeleccion(cboEditorial);
             AsignarNumero(numAnio, DateTime.Now.Year);
             AsignarNumero(numDisponibles, 1);
             txtIsbn.Focus();

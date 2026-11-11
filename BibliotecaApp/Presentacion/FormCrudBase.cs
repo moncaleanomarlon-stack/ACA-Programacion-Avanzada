@@ -74,6 +74,10 @@ namespace BibliotecaApp.Presentacion
                 if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; Buscar(); }
             };
             dgvRegistros.SelectionChanged += AlCambiarSeleccionTabla;
+            // Al mostrarse por primera vez, la grilla vuelve a enlazar los datos y
+            // selecciona sola la primera fila; eso dejaba el formulario en modo edición
+            // y "Guardar" deshabilitado. Se vuelve al estado de registro nuevo.
+            dgvRegistros.DataBindingComplete += delegate { if (!cargando) Limpiar(); };
             Load += delegate
             {
                 Ejecutar(delegate { PrepararControles(); Refrescar(); Limpiar(); });
@@ -191,8 +195,11 @@ namespace BibliotecaApp.Presentacion
             tblCampos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64f));
             tblCampos.AutoScroll = true;
 
+            // Alto automático: el panel crece si los botones pasan a otra fila
+            // (FormPrestamos agrega un quinto botón que antes quedaba recortado).
             pnlBotones.Dock = DockStyle.Bottom;
-            pnlBotones.Height = 100;
+            pnlBotones.AutoSize = true;
+            pnlBotones.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             pnlBotones.FlowDirection = FlowDirection.LeftToRight;
             pnlBotones.WrapContents = true;
             pnlBotones.Controls.Add(btnGuardar);
@@ -212,7 +219,9 @@ namespace BibliotecaApp.Presentacion
             Label lbl = new Label();
             lbl.Text = etiqueta;
             lbl.AutoSize = true;
-            lbl.Anchor = AnchorStyles.Left;
+            // Arriba + izquierda: si la fila es más alta (p. ej. la última), la etiqueta
+            // queda junto a su control y no centrada verticalmente.
+            lbl.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             lbl.Margin = new Padding(3, 10, 3, 6);
 
             control.Dock = DockStyle.Fill;
@@ -261,6 +270,16 @@ namespace BibliotecaApp.Presentacion
             b.Click += alPulsar;
             pnlBotones.Controls.Add(b);
             return b;
+        }
+
+        /// <summary>
+        /// Deja un ComboBox enlazado a datos sin selección. Se asigna -1 dos veces
+        /// porque, con DataSource, la primera asignación a veces se ignora (WinForms).
+        /// </summary>
+        protected static void QuitarSeleccion(ComboBox combo)
+        {
+            combo.SelectedIndex = -1;
+            combo.SelectedIndex = -1;
         }
 
         protected static void AsignarNumero(NumericUpDown control, int valor)

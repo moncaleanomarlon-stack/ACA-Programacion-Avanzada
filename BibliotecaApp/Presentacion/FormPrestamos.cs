@@ -141,8 +141,8 @@ namespace BibliotecaApp.Presentacion
             estadoSeleccionado = null;
             cboUsuario.Enabled = true;
             cboLibro.Enabled = true;
-            cboUsuario.SelectedIndex = -1;
-            cboLibro.SelectedIndex = -1;
+            QuitarSeleccion(cboUsuario);
+            QuitarSeleccion(cboLibro);
             dtpFechaPrestamo.Value = DateTime.Now;
             dtpFechaDevolucion.Checked = false;
             dtpFechaDevolucion.Enabled = false;
