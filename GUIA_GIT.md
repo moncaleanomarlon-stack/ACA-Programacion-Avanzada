@@ -2,43 +2,48 @@
 
 El enunciado exige evidenciar el uso de Git: repositorio creado, `README.md`, commits frecuentes y descriptivos, publicación en GitHub, y script SQL y documentación incluidos.
 
-## 1. Crear y publicar el repositorio
+**Repositorio:** https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada (rama `main`).
+
+## 1. Cómo se creó
+
+El repositorio se creó cuando el proyecto ya tenía un primer avance. El primer commit (`chore: estado inicial recibido`) guarda ese avance tal como estaba, y cada mejora posterior tiene su propio commit. El historial es real: no se reescribió ni se crearon commits con fechas anteriores.
 
 ```bash
-git init
-git branch -M main
-git add .gitignore README.md
-git commit -m "docs: crea repositorio y README inicial"
+git init -b main
+git add -A
+git commit -m "chore: estado inicial recibido"
 git remote add origin https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada.git
 git push -u origin main
 ```
 
-## 2. Commits sugeridos (uno por avance real, en este orden)
+La sección 15 de [`DOCUMENTACION.md`](DOCUMENTACION.md) resume los commits por etapa. Para verlos todos:
 
-Haz cada commit **cuando termines esa parte**, no todos juntos al final. Usa el prefijo convencional (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
-
-```text
-feat(bd): crea script SQL con tablas, claves y restricciones
-feat(bd): agrega datos de prueba al script SQL
-feat(bd): agrega vistas para reportes
-feat(entidades): agrega clases Persona, Autor, Usuario, Editorial, Libro y Prestamo
-feat(datos): agrega ConexionBD con consultas parametrizadas y traduccion de errores
-feat(datos): agrega DAL de autores, editoriales, usuarios y libros
-feat(datos): agrega PrestamoDAL con transacciones de prestamo y devolucion
-feat(negocio): agrega Validador y clases BLL
-feat(ui): agrega FormPrincipal con navegacion lateral
-feat(ui): agrega FormCrudBase y formularios de autores, editoriales y usuarios
-feat(ui): agrega formulario de libros con busqueda por ISBN, titulo y autor
-feat(ui): agrega formulario de prestamos y devoluciones
-feat(ui): agrega modulo de reportes con exportacion a CSV
-test: agrega pruebas automaticas de validaciones
-docs: agrega diagramas ER, clases y casos de uso
-docs: completa documento tecnico y capturas de pantalla
+```bash
+git log --oneline --graph
 ```
+
+## 2. Cómo seguir trabajando
+
+1. Revisar qué cambió: `git status` y `git diff`.
+2. Compilar y ejecutar las pruebas antes de guardar el cambio:
+   ```bash
+   dotnet build BibliotecaApp.sln
+   dotnet run --project BibliotecaApp.Pruebas -- bd
+   ```
+3. Hacer un commit por cambio terminado, con un prefijo que indique su tipo:
+
+   | Prefijo | Uso | Ejemplo del historial |
+   |---|---|---|
+   | `feat` | Funcionalidad nueva | `feat(libros): control de existencias y filtros que se aplican solos` |
+   | `fix` | Corrección de un error | `fix(prestamos): reglas dentro de la transaccion y rollback protegido` |
+   | `test` | Pruebas | `test: resultados reales de las pruebas funcionales PF01-PF23` |
+   | `docs` | Documentación | `docs: enlaza el repositorio real de GitHub` |
+   | `build` / `chore` | Proyecto, dependencias, mantenimiento | `build: migra a .NET 10 y corrige el csproj de pruebas` |
+
+4. Publicar: `git push`.
 
 ## 3. Buenas prácticas
 
-- Revisa `git status` y `git diff` antes de cada commit.
-- Mensajes en imperativo, cortos y específicos (evita "cambios" o "arreglos").
-- Cada commit debe dejar el proyecto compilando.
-- Para mostrar el historial en el documento: `git log --oneline --graph` y toma una captura.
+- Mensajes en imperativo, cortos y específicos (evitar "cambios" o "arreglos"); en el cuerpo del commit, explicar el porqué.
+- Cada commit debe dejar el proyecto compilando y con las pruebas en verde.
+- No versionar `bin/`, `obj/` ni `.vs/` (ya están en `.gitignore`).

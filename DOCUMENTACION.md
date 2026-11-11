@@ -14,7 +14,7 @@
 &nbsp;
 
 **Estudiante:** Marlon Fabián Moncaleano Núñez<br>
-**Tecnologías:** C# · Windows Forms (.NET 8) · SQL Server<br>
+**Tecnologías:** C# · Windows Forms (.NET 10) · SQL Server<br>
 **Fecha:** Noviembre de 2026
 
 </div>
@@ -106,9 +106,10 @@ La solución propuesta es un sistema de escritorio que centraliza la informació
 
 | Requerimiento | Cómo se cumple |
 |---|---|
-| Interfaz clara y organizada | Menú lateral, formularios con la misma distribución (datos a la izquierda, búsqueda y tabla a la derecha) |
+| Interfaz clara y organizada | Menú lateral con iconos, encabezado con la descripción de cada módulo y formularios con la misma distribución (datos a la izquierda, búsqueda y tabla a la derecha). Colores y estilos centralizados en `Tema` |
+| Facilidad de uso | Texto guía en los campos, ayudas emergentes, atajos de teclado (F5, Ctrl+N, Ctrl+G, Supr), filtros que se aplican al cambiarlos, estado del préstamo con color y accesos rápidos en Inicio |
 | Validación de campos obligatorios | `Validador` en la capa de negocio y restricciones `NOT NULL` en la base de datos |
-| Prevención de duplicados | Restricciones `UNIQUE` (ISBN, documento, correos, nombre de editorial) con mensajes claros |
+| Prevención de duplicados | Restricciones `UNIQUE` (ISBN, ISBN sin guiones, documento, correos, nombre de editorial, nombre y apellido de autor) con mensajes claros |
 | Mensajes claros | Clase `Mensajes`; las excepciones SQL se traducen en `ConexionBD.Traducir` |
 | Manejo adecuado de excepciones | `ReglaNegocioException` para errores esperados; `FormCrudBase.Ejecutar` captura todo y evita que la aplicación se cierre |
 | Código organizado y legible | Carpetas por capa, espacios de nombres por capa, nombres descriptivos |
@@ -127,7 +128,10 @@ La solución propuesta es un sistema de escritorio que centraliza la informació
 6. La fecha de devolución no puede ser anterior a la del préstamo ni futura; un préstamo «Prestado» no tiene fecha de devolución y uno «Devuelto» siempre la tiene (también garantizado por la restricción `CK_Prestamos_Coherencia`).
 7. Al eliminar un préstamo activo se repone el stock del libro.
 8. No se puede eliminar un libro con préstamos activos ni con historial, ni un autor/editorial con libros, ni un usuario con préstamos.
-9. El campo **Stock** representa los ejemplares **disponibles** en este momento (ya descuenta los prestados).
+9. El campo **Stock** representa los ejemplares **disponibles** en este momento (ya descuenta los prestados). Si se cambia a mano en un libro con préstamos activos, el sistema lo explica y pide confirmación.
+10. Las reglas 1 a 3 se comprueban **dentro de la transacción** del préstamo, con bloqueo de los registros involucrados, para que dos préstamos simultáneos no puedan saltárselas.
+11. Al actualizar un libro no se sobrescribe un stock que haya cambiado mientras se editaba (por un préstamo o una devolución); se avisa al usuario para que lo revise.
+12. No se puede registrar dos veces el mismo autor (nombre y apellido) ni el mismo ISBN escrito con o sin guiones.
 
 ## 5. Casos de uso
 
@@ -159,8 +163,9 @@ La solución propuesta es un sistema de escritorio que centraliza la informació
 | **Constructores** | Constructor vacío y constructor con parámetros en cada entidad; constructores de los formularios que construyen la interfaz |
 | **Encapsulamiento y propiedades** | Propiedades automáticas en las entidades; campos privados `readonly` en DAL/BLL/formularios; propiedades calculadas como `NombreCompleto`, `TieneExistencias` y `EstaDevuelto` |
 | **Herencia** | `Autor` y `Usuario` heredan de `Persona` (comparten nombre y apellido). `FormLibros`, `FormAutores`, `FormEditoriales`, `FormUsuarios` y `FormPrestamos` heredan de `FormCrudBase` |
-| **Polimorfismo** | `Persona.Describir()` es abstracto y cada subclase lo especializa. `FormCrudBase` declara métodos abstractos (`Guardar`, `Actualizar`, `Eliminar`, `Refrescar`…) que cada módulo implementa, y la clase base los invoca sin conocer el módulo concreto |
-| **Colecciones** | `Dictionary<string,string>` con los mensajes de restricciones, arreglos de criterios/estados, `DataTable` para listados |
+| **Polimorfismo** | `Persona.Describir()` es abstracto y cada subclase lo especializa. `FormCrudBase` declara métodos abstractos (`Guardar`, `Actualizar`, `Eliminar`, `Refrescar`…) que cada módulo implementa, y la clase base los invoca sin conocer el módulo concreto. Los ganchos virtuales (`PrepararControles`, `ConfirmarActualizacion`, `MensajeConfirmarEliminar`…) permiten que un módulo cambie solo la parte que necesita; por ejemplo, Libros sobrescribe `ConfirmarActualizacion` para pedir confirmación al cambiar existencias |
+| **Colecciones** | `Dictionary<string,string>` con los mensajes de restricciones y los títulos de columna, `List<int>` en las pruebas, arreglos de criterios/estados, `DataTable` para listados |
+| **Uso de `DataTable` en el acceso a datos** | Los DAL devuelven `DataTable` para las consultas de listado porque se enlazan directamente a las grillas; las entidades se usan para enviar datos a la base (registrar y actualizar). Es una decisión deliberada para mantener la capa de presentación simple |
 | **Organización de responsabilidades** | Entidades (datos), DAL (SQL), BLL (reglas), formularios (interfaz) |
 
 ## 7. Modelo entidad-relación
@@ -189,6 +194,8 @@ Base de datos: `BibliotecaDB` (SQL Server). Los nombres de las restricciones coi
 | `Apellido` | VARCHAR(50) | No | | Apellido del autor |
 | `Nacionalidad` | VARCHAR(50) | No | | País de origen |
 
+Restricción adicional `UQ_Autores_NombreApellido`: no puede haber dos autores con el mismo nombre y apellido (la intercalación no distingue mayúsculas).
+
 ### 8.2 Editoriales
 
 | Campo | Tipo | Nulo | Restricción | Descripción |
@@ -209,6 +216,7 @@ Base de datos: `BibliotecaDB` (SQL Server). Los nombres de las restricciones coi
 | `EditorialID` | INT | No | FK `FK_Libros_Editoriales` → Editoriales | Editorial del libro |
 | `AnioPublicacion` | INT | No | CHECK `CK_Libros_Anio` (1001–2100); la aplicación limita al año actual | Año de publicación |
 | `Stock` | INT | No | DEFAULT 1; CHECK `CK_Libros_Stock` (≥ 0) | Ejemplares **disponibles** |
+| `ISBNSinGuiones` | VARCHAR(20), calculada y persistida: `REPLACE(ISBN, '-', '')` | No | UNIQUE `UQ_Libros_ISBNSinGuiones` | Evita registrar el mismo ISBN con y sin guiones |
 
 ### 8.4 Usuarios
 
@@ -258,7 +266,8 @@ BibliotecaApp/
   AccesoDatos/     BibliotecaApp.AccesoDatos    ConexionBD, AutorDAL, EditorialDAL, LibroDAL, UsuarioDAL, PrestamoDAL, ReporteDAL
   LogicaNegocio/   BibliotecaApp.LogicaNegocio  Validador, AutorBLL, EditorialBLL, LibroBLL, UsuarioBLL, PrestamoBLL, ReporteBLL
   Presentacion/    BibliotecaApp.Presentacion   FormPrincipal, FormInicio, FormCrudBase, FormLibros, FormAutores,
-                                                FormEditoriales, FormUsuarios, FormPrestamos, FormReportes, Mensajes
+                                                FormEditoriales, FormUsuarios, FormPrestamos, FormReportes, Mensajes, Tema
+BibliotecaApp.Pruebas/                          Pruebas automáticas (referencia al proyecto principal)
 ```
 
 | Capa | Responsabilidad |
@@ -269,18 +278,18 @@ BibliotecaApp/
 | **Base de datos** | Tablas, relaciones, restricciones de integridad y vistas de reportes |
 | **Entidades** | Modelo de objetos compartido por las capas |
 
-**Flujo de una operación** (ejemplo: registrar préstamo): `FormPrestamos.Guardar()` → `PrestamoBLL.RegistrarPrestamo()` valida reglas → `PrestamoDAL.RegistrarPrestamo()` abre una transacción, verifica usuario y libro, bloquea la fila del libro, inserta el préstamo y descuenta el stock → `Commit`. Ante cualquier error se hace `Rollback` y la excepción sube hasta `FormCrudBase.Ejecutar`, que muestra el mensaje.
+**Flujo de una operación** (ejemplo: registrar préstamo): `FormPrestamos.Guardar()` → `PrestamoBLL.RegistrarPrestamo()` valida datos y fechas y hace una comprobación rápida de las reglas → `PrestamoDAL.RegistrarPrestamo()` abre una transacción, verifica que el usuario exista, bloquea sus préstamos activos y vuelve a comprobar el máximo y el libro repetido, bloquea la fila del libro y verifica existencias, inserta el préstamo y descuenta el stock → `Commit`. Ante cualquier error se hace `Rollback` y la excepción sube hasta `FormCrudBase.Ejecutar`, que muestra el mensaje.
 
 ## 10. Explicación de los módulos desarrollados
 
 ### 10.1 Inicio (`FormInicio`)
-Pantalla de bienvenida con tarjetas de indicadores tomadas de `VISTA_ResumenGeneral`.
+Siete tarjetas de indicadores tomadas de `VISTA_ResumenGeneral`, cada una con su color e icono; al hacer clic en una se abre el módulo correspondiente (la de préstamos activos abre Préstamos filtrado en «Prestado»). Debajo hay **accesos rápidos**: Registrar préstamo, Registrar devolución (abre los préstamos activos), Nuevo libro y Ver reportes.
 
 ### 10.2 Formulario principal y navegación (`FormPrincipal`)
-Menú lateral con los siete módulos, encabezado con el nombre del módulo activo y barra de estado que informa si la conexión con SQL Server fue exitosa. Cada módulo se crea al seleccionarlo y se libera al cambiar, de modo que las listas desplegables siempre muestran datos actualizados.
+Menú lateral con el nombre del sistema, un icono por módulo, una barra que marca el módulo activo y efecto al pasar el ratón. El encabezado muestra el título y una descripción del módulo, y la barra de estado indica la conexión con SQL Server y la fecha y hora. Cada módulo se crea al seleccionarlo y se libera al cambiar, de modo que las listas desplegables siempre muestran datos actualizados. El método `IrA(nombre)` permite abrir un módulo desde otro formulario (lo usa Inicio).
 
 ### 10.3 Libros (`FormLibros`)
-Campos: ISBN, título, autor y editorial (listas desplegables cargadas desde la base de datos), año de publicación y ejemplares disponibles. Búsqueda por **Todos, Código (ISBN), Título o Autor**. Valida la unicidad del ISBN, que autor y editorial existan, el rango del año y las existencias. No permite eliminar libros con préstamos.
+Campos: ISBN, título, autor y editorial (listas desplegables cargadas desde la base de datos), año de publicación y ejemplares disponibles. Búsqueda por **Todos, Código (ISBN), Título o Autor**; la tabla se actualiza al cambiar el criterio. Valida la unicidad del ISBN (con o sin guiones), que autor y editorial existan, el rango del año y las existencias. No permite eliminar libros con préstamos. Si se cambian los ejemplares disponibles de un libro con préstamos activos, explica que los prestados ya están descontados y pide confirmación; además, no sobrescribe un stock que haya cambiado mientras se editaba. Los libros sin existencias se muestran en rojo.
 
 ### 10.4 Autores (`FormAutores`) y Editoriales (`FormEditoriales`)
 CRUD con búsqueda. Los nombres de personas solo admiten letras, espacios, apóstrofes, puntos y guiones. En editoriales se valida teléfono, correo y unicidad de nombre y correo. La eliminación se bloquea con un mensaje claro si hay libros relacionados.
@@ -293,13 +302,18 @@ CRUD con búsqueda por documento, nombre, apellido o correo. El documento debe t
 - **Registrar devolución:** se selecciona un préstamo activo; se guarda fecha y hora, el estado pasa a «Devuelto» y el stock sube en uno.
 - **Actualizar fechas:** se corrigen las fechas manteniendo la coherencia con el estado. El usuario y el libro de un préstamo existente no se modifican para no descuadrar el inventario; si hay un error se elimina y se registra de nuevo.
 - **Eliminar:** si el préstamo estaba activo, la unidad vuelve al stock.
-- **Filtro** por estado (Todos, Prestado, Devuelto) y búsqueda por documento, nombre, título o ISBN.
+- **Filtro** por estado (Todos, Prestado, Devuelto), que se aplica al cambiarlo, y búsqueda por documento, nombre, título o ISBN.
+- El estado se muestra como etiqueta de color: **ámbar** para «Prestado» y **verde** para «Devuelto». La tabla muestra solo la fecha; la hora exacta aparece en el formulario al seleccionar el préstamo.
+- «Registrar devolución» solo se habilita con un préstamo activo seleccionado.
 
 ### 10.7 Reportes (`FormReportes`)
 Nueve reportes: resumen consolidado, libros, autores, editoriales, usuarios, préstamos activos, préstamos devueltos, historial y libros más prestados. Incluye **exportación a CSV** (UTF-8 con BOM, separador `;`, compatible con Excel).
 
 ### 10.8 Clase base `FormCrudBase`
-Construye la interfaz común de los módulos CRUD y centraliza: manejo de excepciones, habilitación de botones (Guardar solo para registros nuevos; Actualizar y Eliminar solo con un registro seleccionado), confirmación antes de eliminar y refresco de la tabla.
+Construye la interfaz común de los módulos CRUD y centraliza: manejo de excepciones, habilitación de botones (Guardar solo para registros nuevos; Actualizar y Eliminar solo con un registro seleccionado), confirmación antes de eliminar y refresco de la tabla. También ofrece texto guía en la búsqueda, ayudas emergentes en los botones y atajos de teclado: **F5** recargar, **Ctrl+N** nuevo, **Ctrl+G** guardar o actualizar y **Supr** eliminar (con el foco en la tabla). Al abrir un módulo el formulario queda listo para un registro nuevo, sin filas seleccionadas.
+
+### 10.9 Estilos compartidos (`Tema`)
+Clase estática con la paleta de colores, las fuentes, los iconos (fuente *Segoe MDL2 Assets*, incluida en Windows) y los métodos que dan estilo a botones y grillas: títulos de columna legibles («Año» en lugar de «AnioPublicacion»), anchos mínimos, formato de fecha y un aspecto distinto para los botones deshabilitados. Todos los formularios la usan, de modo que la apariencia se cambia en un solo lugar.
 
 ## 11. Descripción de la conexión con SQL Server
 
@@ -308,39 +322,39 @@ La clase `ConexionBD` (capa de acceso a datos) es el único punto que conoce la 
 ```xml
 <connectionStrings>
   <add name="BibliotecaDB"
-       connectionString="Server=localhost;Database=BibliotecaDB;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=10;"
+       connectionString="Server=.\SQLEXPRESS;Database=BibliotecaDB;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=10;"
        providerName="Microsoft.Data.SqlClient" />
 </connectionStrings>
 ```
 
 - Se usa el paquete **Microsoft.Data.SqlClient** (el proveedor actual de Microsoft para SQL Server).
 - `ConexionBD` ofrece `Consultar`, `Ejecutar` y `Escalar`, que abren y cierran la conexión con `using` y siempre reciben parámetros (`SqlParameter`), lo que previene inyección SQL. Los textos de búsqueda se escapan con `PatronLike` para que `%`, `_` y `[` se traten como texto.
-- `PrestamoDAL` usa `SqlTransaction` para que el préstamo (o la devolución) y el cambio de stock se apliquen juntos o no se apliquen. La lectura del libro usa `UPDLOCK` para evitar que dos usuarios consuman la última existencia al mismo tiempo.
-- `ConexionBD.Traducir` convierte los errores de SQL Server en mensajes comprensibles: errores de conexión (números 2, 53, 4060, 18456…), duplicados (2627/2601) y violaciones de claves foráneas o `CHECK` (547), identificando la restricción por su nombre.
+- `PrestamoDAL` usa `SqlTransaction` para que el préstamo (o la devolución) y el cambio de stock se apliquen juntos o no se apliquen. Un único método auxiliar (`EnTransaccion`) abre la transacción con `using`, confirma al final y, ante cualquier error, hace `Rollback` sin perder la excepción original aunque el `Rollback` también falle. La lectura del libro usa `UPDLOCK, ROWLOCK` y la de los préstamos activos del usuario `UPDLOCK, HOLDLOCK`, para que dos préstamos simultáneos no consuman la misma existencia ni superen el máximo.
+- `ConexionBD.Traducir` convierte los errores de SQL Server en mensajes comprensibles: errores de conexión (números 2, 53, 4060, 18456…), duplicados (2627/2601) y violaciones de claves foráneas o `CHECK` (547). La restricción se identifica por su **nombre exacto** entre comillas en el mensaje de SQL Server (funciona con mensajes en español o en inglés).
 - `ProbarConexion` se ejecuta al abrir la aplicación y muestra el resultado en la barra de estado.
 
-**Para ejecutar el sistema:** ejecutar `sql/Script_Biblioteca_Completo.sql` en SSMS y ajustar `Server` en `App.config` (`localhost`, `.\SQLEXPRESS` o `(localdb)\MSSQLLocalDB`).
+**Para ejecutar el sistema:** se necesita el runtime **.NET 10 Desktop** (o el SDK) y SQL Server. Ejecutar `sql/Script_Biblioteca_Completo.sql` (en SSMS o con `sqlcmd`) y, si la instancia no es `.\SQLEXPRESS`, ajustar `Server` en `App.config` (`localhost` para la instancia por defecto o `(localdb)\MSSQLLocalDB`). El script fija `QUOTED_IDENTIFIER` y `ANSI_NULLS`, que requiere la columna calculada de Libros, y usa fechas en formato ISO 8601 para funcionar con servidores en cualquier idioma. **Atención:** si `BibliotecaDB` ya existe, el script la borra y la vuelve a crear.
 
 ## 12. Validaciones y manejo de excepciones
 
 | Entidad | Validaciones (capa de negocio) | Refuerzo en la base de datos |
 |---|---|---|
-| **Libros** | ISBN obligatorio, 10–20 caracteres (dígitos, guiones, X final); título obligatorio ≤ 150; autor y editorial seleccionados y existentes; año entre 1001 y el año actual; existencias entre 0 y 100000 | `UNIQUE` en ISBN, `CHECK` de año y stock, FK |
-| **Autores** | Nombre, apellido y nacionalidad obligatorios, ≤ 50, solo letras | `NOT NULL` |
+| **Libros** | ISBN obligatorio, 10–20 caracteres (dígitos, guiones, X final); título obligatorio ≤ 150; autor y editorial seleccionados y existentes; año entre 1001 y el año actual; existencias entre 0 y 100000; confirmación al cambiar existencias con préstamos activos; stock no sobrescrito si cambió durante la edición | `UNIQUE` en ISBN y en ISBN sin guiones, `CHECK` de año y stock, FK |
+| **Autores** | Nombre, apellido y nacionalidad obligatorios, ≤ 50, solo letras | `NOT NULL`, `UNIQUE` en nombre + apellido |
 | **Editoriales** | Nombre ≤ 100; teléfono de 7 a 20 dígitos; correo válido ≤ 100 | `UNIQUE` en nombre y correo, `CHECK` de correo |
 | **Usuarios** | Documento numérico 5–20; nombre y apellido solo letras; teléfono 7–20 dígitos; correo válido | `UNIQUE` en documento y correo, `CHECK` de correo |
-| **Préstamos** | Usuario y libro seleccionados y existentes; fechas no futuras; devolución ≥ préstamo; existencias; máximo de préstamos activos; sin duplicar libro activo | FK, `CHECK` de estado y coherencia, transacciones |
+| **Préstamos** | Usuario y libro seleccionados y existentes; fechas no futuras; devolución ≥ préstamo; existencias; máximo de préstamos activos; sin duplicar libro activo (las tres últimas se verifican dentro de la transacción) | FK, `CHECK` de estado y coherencia, transacciones con bloqueo |
 
 **Manejo de excepciones:**
 
 - `ReglaNegocioException` representa errores esperados (validación, regla incumplida, duplicado, registro relacionado). Se muestra como **advertencia**.
 - Cualquier otra excepción (por ejemplo, falla de conexión) se muestra como **error** con un mensaje explicativo.
 - `FormCrudBase.Ejecutar` envuelve cada acción del usuario, y `Program.cs` registra un manejador global como último recurso, de modo que la aplicación no se cierra por un error.
-- Los métodos transaccionales siempre ejecutan `Rollback` ante cualquier fallo.
+- Los métodos transaccionales siempre ejecutan `Rollback` ante cualquier fallo, y si el propio `Rollback` falla se conserva el error original.
 
 ## 13. Capturas de pantalla del sistema
 
-> **Importante:** las imágenes actuales de `docs/capturas/` son marcadores de posición. Ejecute el sistema, tome las capturas y reemplace cada archivo conservando el mismo nombre; el documento y el PDF se actualizan automáticamente.
+Capturas tomadas el 10/11/2026 de la aplicación en ejecución, conectada a SQL Server Express con los datos del script. En «Registro de una devolución» se muestra la confirmación que aparece al pulsar el botón, y en «Mensaje de validación» la advertencia al intentar guardar un correo con formato inválido. La última imagen es una consulta a la base de datos con `sqlcmd` (en este equipo no está instalado SQL Server Management Studio). Las capturas de cada prueba funcional están en [`docs/pruebas/`](docs/pruebas).
 
 **Inicio**
 ![Pantalla de inicio](docs/capturas/01_inicio.png)
@@ -360,7 +374,7 @@ La clase `ConexionBD` (capa de acceso a datos) es el único punto que conoce la 
 **Préstamos**
 ![Módulo de préstamos](docs/capturas/06_prestamos.png)
 
-**Devolución registrada**
+**Registro de una devolución (confirmación)**
 ![Registro de una devolución](docs/capturas/07_devolucion.png)
 
 **Reportes**
@@ -369,7 +383,7 @@ La clase `ConexionBD` (capa de acceso a datos) es el único punto que conoce la 
 **Mensaje de validación**
 ![Mensaje de validación](docs/capturas/09_validacion_error.png)
 
-**Base de datos en SQL Server Management Studio**
+**Base de datos en SQL Server (tablas, filas, restricciones y vistas consultadas con `sqlcmd`)**
 ![Tablas en SQL Server](docs/capturas/10_sql_server_tablas.png)
 
 ## 14. Pruebas de funcionamiento
@@ -477,7 +491,18 @@ Resultado de la última ejecución (10/11/2026, con SQL Server Express): **43 de
 
 El proyecto se gestiona con Git y se publica en GitHub. El repositorio contiene el código fuente (`BibliotecaApp/`), las pruebas, el script SQL (`sql/`), el `README.md` con instrucciones de ejecución, la documentación, los diagramas y las capturas de pantalla (`docs/`).
 
-La guía [`GUIA_GIT.md`](GUIA_GIT.md) describe el flujo de trabajo y una secuencia de commits descriptivos por avance. El historial se evidencia con `git log --oneline --graph` y con la pestaña *Commits* del repositorio en GitHub.
+La guía [`GUIA_GIT.md`](GUIA_GIT.md) describe el flujo de trabajo. El historial se consulta con `git log --oneline --graph` y en la pestaña *Commits* del repositorio en GitHub.
+
+El repositorio se creó cuando el proyecto ya tenía un primer avance, por eso el **primer commit** guarda el proyecto tal como estaba en ese momento. A partir de ahí, cada mejora tiene su propio commit con un mensaje que explica el cambio y su motivo:
+
+| Etapa | Commits (mensaje resumido) |
+|---|---|
+| Estado inicial | `chore: estado inicial recibido` |
+| Corrección de errores críticos | `build: migra a .NET 10 y corrige el csproj de pruebas` · `fix(bd): conexion a .\SQLEXPRESS y fechas ISO en el script` · `fix(ui): botones, seleccion inicial, combos y tarjetas de inicio` · `docs: enlaza el repositorio real de GitHub` |
+| Robustez de la lógica | `fix(prestamos): reglas dentro de la transaccion y rollback protegido` · `feat(bd): evita autores duplicados e ISBN repetidos con o sin guiones` · `feat(libros): control de existencias y filtros que se aplican solos` · `test: pruebas de reglas de prestamo y pruebas contra SQL Server` |
+| Rediseño visual | `feat(ui): Tema con colores, fuentes y estilos compartidos` · `feat(ui): rediseno visual de la navegacion, modulos e inicio` |
+| Pruebas funcionales | `test: resultados reales de las pruebas funcionales PF01-PF23` |
+| Documentación | `docs: capturas reales y documentacion actualizada` |
 
 **Enlace del repositorio:** [https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada](https://github.com/moncaleanomarlon-stack/ACA-Programacion-Avanzada)
 
@@ -488,6 +513,7 @@ La guía [`GUIA_GIT.md`](GUIA_GIT.md) describe el flujo de trabajo y una secuenc
 - Combinar validaciones en la capa de negocio con restricciones en SQL Server (`UNIQUE`, `CHECK`, claves foráneas) da doble protección de la integridad: la aplicación informa con mensajes claros y la base de datos impide datos inválidos aunque se acceda por otra vía.
 - La herencia (`Persona`, `FormCrudBase`) y el polimorfismo redujeron el código repetido: cinco módulos comparten una misma estructura de interfaz y manejo de errores.
 - Las consultas parametrizadas eliminan el riesgo de inyección SQL.
+- Ejecutar el sistema y probarlo en un equipo real fue indispensable. Varios errores solo aparecieron así: el script fallaba con fechas en un servidor en español, el botón «Registrar devolución» quedaba oculto, los módulos abrían con un registro ya seleccionado y el proyecto de pruebas no compilaba. Todos se corrigieron y quedaron cubiertos por las pruebas de la sección 14.
 
 ## 17. Recomendaciones
 
@@ -495,7 +521,9 @@ La guía [`GUIA_GIT.md`](GUIA_GIT.md) describe el flujo de trabajo y una secuenc
 - Implementar **fecha límite de devolución, multas y renovaciones** de préstamos.
 - Permitir **varios libros por préstamo** mediante una tabla `DetallePrestamos`.
 - Generar reportes en **PDF o Excel** con gráficos.
-- Añadir **pruebas de integración** con una base de datos de prueba y pruebas de interfaz.
+- Usar una **base de datos exclusiva para pruebas**, para que las pruebas automáticas contra SQL Server no compartan la base de trabajo.
+- Mostrar los errores de validación **junto al campo** (`ErrorProvider`) además del mensaje emergente.
+- Probar la interfaz con el **escalado de pantalla de Windows al 125–150 %**, habitual en portátiles (en esta versión solo se probó al 100 %).
 - Mover la cadena de conexión a variables de entorno o a un almacén seguro de secretos al desplegar en producción.
 - Hacer copias de seguridad periódicas de `BibliotecaDB`.
 
