@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using BibliotecaApp.Entidades;
 
@@ -20,7 +21,9 @@ namespace BibliotecaApp.AccesoDatos
         private static readonly Dictionary<string, string> MensajesRestricciones =
             new Dictionary<string, string>
         {
+            { "UQ_Libros_ISBNSinGuiones", "Ya existe un libro con ese ISBN (escrito con o sin guiones)." },
             { "UQ_Libros_ISBN",          "Ya existe un libro registrado con ese ISBN." },
+            { "UQ_Autores_NombreApellido", "Ya existe un autor registrado con ese nombre y apellido." },
             { "UQ_Usuarios_Documento",   "Ya existe un usuario registrado con ese documento." },
             { "UQ_Usuarios_Email",       "Ya existe un usuario registrado con ese correo electrónico." },
             { "UQ_Editoriales_Nombre",   "Ya existe una editorial con ese nombre." },
@@ -143,8 +146,13 @@ namespace BibliotecaApp.AccesoDatos
                         "conexión en App.config.", ex);
 
                 case 2627: case 2601: case 547:
+                    string restriccion = NombreRestriccion(ex.Message);
+                    string mensaje;
+                    if (restriccion != null && MensajesRestricciones.TryGetValue(restriccion, out mensaje))
+                        return new ReglaNegocioException(mensaje, ex);
                     foreach (KeyValuePair<string, string> par in MensajesRestricciones)
                     {
+                        // Respaldo por si el formato del mensaje cambia (idioma o versión de SQL Server)
                         if (ex.Message.Contains(par.Key))
                             return new ReglaNegocioException(par.Value, ex);
                     }
@@ -155,6 +163,22 @@ namespace BibliotecaApp.AccesoDatos
                 default:
                     return new Exception("Error de base de datos (" + ex.Number + "): " + ex.Message, ex);
             }
+        }
+
+        /// <summary>
+        /// Busca en el mensaje de SQL Server el nombre exacto de la restricción, que
+        /// aparece entre comillas simples o dobles (p. ej. 'UQ_Libros_ISBN'). Se compara
+        /// el nombre completo para no confundir UQ_Libros_ISBN con UQ_Libros_ISBNSinGuiones.
+        /// </summary>
+        public static string NombreRestriccion(string mensajeSql)
+        {
+            if (mensajeSql == null) return null;
+            foreach (Match m in Regex.Matches(mensajeSql, "['\"]([A-Za-z0-9_]+)['\"]"))
+            {
+                if (MensajesRestricciones.ContainsKey(m.Groups[1].Value))
+                    return m.Groups[1].Value;
+            }
+            return null;
         }
     }
 }

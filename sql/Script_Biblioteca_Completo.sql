@@ -5,6 +5,12 @@
 -- Ejecutar completo en SQL Server Management Studio (SSMS).
 -- =====================================================================
 
+-- Opciones requeridas por el índice UNIQUE sobre la columna calculada
+-- Libros.ISBNSinGuiones. SSMS ya las usa por defecto; sqlcmd no.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- 1. CREACIÓN DE LA BASE DE DATOS -------------------------------------
 USE master;
 GO
@@ -26,7 +32,9 @@ CREATE TABLE Autores (
     Nombre       VARCHAR(50) NOT NULL,
     Apellido     VARCHAR(50) NOT NULL,
     Nacionalidad VARCHAR(50) NOT NULL,
-    CONSTRAINT PK_Autores PRIMARY KEY (AutorID)
+    CONSTRAINT PK_Autores PRIMARY KEY (AutorID),
+    -- Evita registrar dos veces al mismo autor (la intercalación no distingue mayúsculas)
+    CONSTRAINT UQ_Autores_NombreApellido UNIQUE (Nombre, Apellido)
 );
 GO
 
@@ -50,8 +58,11 @@ CREATE TABLE Libros (
     EditorialID     INT NOT NULL,
     AnioPublicacion INT NOT NULL,
     Stock           INT NOT NULL CONSTRAINT DF_Libros_Stock DEFAULT 1,  -- ejemplares DISPONIBLES
+    -- ISBN sin guiones: '978-958-42-2000-4' y '9789584220004' son el mismo libro
+    ISBNSinGuiones  AS CAST(REPLACE(ISBN, '-', '') AS VARCHAR(20)) PERSISTED,
     CONSTRAINT PK_Libros PRIMARY KEY (LibroID),
     CONSTRAINT UQ_Libros_ISBN UNIQUE (ISBN),
+    CONSTRAINT UQ_Libros_ISBNSinGuiones UNIQUE (ISBNSinGuiones),
     CONSTRAINT CK_Libros_Anio  CHECK (AnioPublicacion > 1000 AND AnioPublicacion <= 2100),
     CONSTRAINT CK_Libros_Stock CHECK (Stock >= 0),
     CONSTRAINT FK_Libros_Autores      FOREIGN KEY (AutorID)     REFERENCES Autores(AutorID),
