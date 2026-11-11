@@ -19,6 +19,9 @@ namespace BibliotecaApp.Presentacion
         private readonly NumericUpDown numDisponibles;
         private readonly ComboBox cboCriterio;
 
+        /// <summary>Existencias que tenía el libro al seleccionarlo (para detectar cambios).</summary>
+        private int stockCargado;
+
         public FormLibros() : base("Libros")
         {
             txtIsbn = AgregarTexto("ISBN (código):", 20);
@@ -76,9 +79,29 @@ namespace BibliotecaApp.Presentacion
             Informar("Libro registrado correctamente.");
         }
 
+        /// <summary>
+        /// "Ejemplares disponibles" ya descuenta los prestados. Si el libro tiene
+        /// préstamos activos y se cambia ese valor, se explica y se pide confirmación
+        /// para no inflar o reducir el inventario por error.
+        /// </summary>
+        protected override bool ConfirmarActualizacion()
+        {
+            int nuevo = (int)numDisponibles.Value;
+            if (nuevo == stockCargado) return true;
+
+            int activos = libroBll.ContarPrestamosActivos(idSeleccionado);
+            if (activos == 0) return true;
+
+            return Mensajes.Confirmar(
+                "Este libro tiene " + activos + " ejemplar(es) prestado(s).\n" +
+                "\"Ejemplares disponibles\" cuenta solo los que están en la biblioteca: " +
+                "los prestados ya están descontados y volverán a sumarse al devolverlos.\n\n" +
+                "¿Cambiar los disponibles de " + stockCargado + " a " + nuevo + "?");
+        }
+
         protected override void Actualizar()
         {
-            libroBll.Actualizar(LeerFormulario());
+            libroBll.Actualizar(LeerFormulario(), stockCargado);
             Informar("Libro actualizado correctamente.");
         }
 
@@ -107,7 +130,8 @@ namespace BibliotecaApp.Presentacion
             cboAutor.SelectedValue = CeldaEntera(fila, "AutorID");
             cboEditorial.SelectedValue = CeldaEntera(fila, "EditorialID");
             AsignarNumero(numAnio, CeldaEntera(fila, "AnioPublicacion"));
-            AsignarNumero(numDisponibles, CeldaEntera(fila, "Disponibles"));
+            stockCargado = CeldaEntera(fila, "Disponibles");
+            AsignarNumero(numDisponibles, stockCargado);
         }
     }
 }

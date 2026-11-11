@@ -61,12 +61,18 @@ namespace BibliotecaApp.AccesoDatos
             return Convert.ToInt32(id);
         }
 
-        public bool Actualizar(Libro l)
+        /// <summary>
+        /// Actualiza el libro solo si su stock sigue siendo <paramref name="stockAnterior"/>
+        /// (el valor que se mostró al editar). Si un préstamo o devolución lo cambió
+        /// mientras tanto, no se actualiza nada y devuelve false.
+        /// </summary>
+        public bool Actualizar(Libro l, int stockAnterior)
         {
             return conexion.Ejecutar(
                 "UPDATE Libros SET ISBN = @ISBN, Titulo = @Titulo, AutorID = @AutorID, " +
                 "EditorialID = @EditorialID, AnioPublicacion = @Anio, Stock = @Stock " +
-                "WHERE LibroID = @Id",
+                "WHERE LibroID = @Id AND Stock = @StockAnterior",
+                ConexionBD.Param("@StockAnterior", stockAnterior),
                 ConexionBD.Param("@ISBN", l.ISBN),
                 ConexionBD.Param("@Titulo", l.Titulo),
                 ConexionBD.Param("@AutorID", l.AutorID),
@@ -80,6 +86,13 @@ namespace BibliotecaApp.AccesoDatos
         {
             return conexion.Ejecutar("DELETE FROM Libros WHERE LibroID = @Id",
                 ConexionBD.Param("@Id", libroId)) > 0;
+        }
+
+        public bool Existe(int libroId)
+        {
+            return Convert.ToInt32(conexion.Escalar(
+                "SELECT COUNT(*) FROM Libros WHERE LibroID = @Id",
+                ConexionBD.Param("@Id", libroId))) > 0;
         }
 
         /// <summary>Cantidad de préstamos ACTIVOS del libro (ejemplares fuera de la biblioteca).</summary>

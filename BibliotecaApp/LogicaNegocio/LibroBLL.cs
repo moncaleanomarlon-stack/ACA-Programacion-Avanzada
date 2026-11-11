@@ -45,12 +45,25 @@ namespace BibliotecaApp.LogicaNegocio
             return dal.Insertar(libro);
         }
 
-        public void Actualizar(Libro libro)
+        /// <summary>
+        /// Actualiza el libro. <paramref name="stockAnterior"/> es el stock que se mostró al
+        /// editar: si cambió entretanto (préstamo o devolución), no se sobrescribe.
+        /// </summary>
+        public void Actualizar(Libro libro, int stockAnterior)
         {
             Validar(libro);
-            if (!dal.Actualizar(libro))
-                throw new ReglaNegocioException("El libro ya no existe; actualice la lista.");
+            if (!dal.Actualizar(libro, stockAnterior))
+            {
+                if (!dal.Existe(libro.LibroID))
+                    throw new ReglaNegocioException("El libro ya no existe; actualice la lista.");
+                throw new ReglaNegocioException(
+                    "Las existencias de este libro cambiaron mientras lo editaba (por un préstamo " +
+                    "o una devolución). No se guardó nada: vuelva a seleccionarlo y revise el valor.");
+            }
         }
+
+        /// <summary>Préstamos activos del libro (ejemplares que están fuera de la biblioteca).</summary>
+        public int ContarPrestamosActivos(int libroId) { return dal.ContarPrestamosActivos(libroId); }
 
         public void Eliminar(int libroId)
         {

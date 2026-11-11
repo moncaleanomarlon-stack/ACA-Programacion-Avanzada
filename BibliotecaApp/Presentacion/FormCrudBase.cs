@@ -65,7 +65,15 @@ namespace BibliotecaApp.Presentacion
 
             btnLimpiar.Click += delegate { Limpiar(); };
             btnGuardar.Click += delegate { Ejecutar(delegate { Guardar(); FinalizarOperacion(); }); };
-            btnActualizar.Click += delegate { Ejecutar(delegate { Actualizar(); FinalizarOperacion(); }); };
+            btnActualizar.Click += delegate
+            {
+                Ejecutar(delegate
+                {
+                    if (!ConfirmarActualizacion()) return;   // el usuario sigue editando
+                    Actualizar();
+                    FinalizarOperacion();
+                });
+            };
             btnEliminar.Click += AlPulsarEliminar;
             btnBuscar.Click += delegate { Buscar(); };
             btnMostrarTodos.Click += delegate { txtBuscar.Clear(); Buscar(); };
@@ -109,6 +117,11 @@ namespace BibliotecaApp.Presentacion
         protected virtual void DespuesDeOperacion() { }
         /// <summary>Se ejecuta cuando cambia el registro seleccionado.</summary>
         protected virtual void AlCambiarSeleccion() { }
+        /// <summary>
+        /// Se ejecuta antes de Actualizar. Devuelve false para cancelar sin perder lo
+        /// escrito (p. ej. Libros pide confirmación al cambiar existencias).
+        /// </summary>
+        protected virtual bool ConfirmarActualizacion() { return true; }
         protected virtual string MensajeConfirmarEliminar
         {
             get { return "¿Está seguro de eliminar el registro seleccionado?\nEsta acción no se puede deshacer."; }
@@ -261,6 +274,9 @@ namespace BibliotecaApp.Presentacion
             cbo.SelectedIndex = 0;
             flpBusqueda.Controls.Add(cbo);
             flpBusqueda.Controls.SetChildIndex(cbo, 1);   // justo después de "Buscar:"
+            // Se suscribe después de fijar el valor inicial: cambiar el criterio o el
+            // filtro de estado actualiza la tabla sin tener que pulsar "Buscar".
+            cbo.SelectedIndexChanged += delegate { Buscar(); };
             return cbo;
         }
 
