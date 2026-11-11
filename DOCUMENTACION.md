@@ -376,7 +376,14 @@ La clase `ConexionBD` (capa de acceso a datos) es el único punto que conoce la 
 
 ### 14.1 Pruebas automáticas (proyecto `BibliotecaApp.Pruebas`)
 
-Se ejecutan con `dotnet run --project BibliotecaApp.Pruebas` y no requieren base de datos. Resultado de la última ejecución: **19 de 19 pruebas aprobadas**.
+El proyecto de pruebas referencia al proyecto principal y prueba sus clases reales. Tiene dos modos:
+
+- `dotnet run --project BibliotecaApp.Pruebas` → 27 pruebas que **no requieren base de datos** (validaciones, entidades y reglas de préstamo que se rechazan antes de llegar a SQL Server).
+- `dotnet run --project BibliotecaApp.Pruebas -- bd` → las 27 anteriores **más 16 contra `BibliotecaDB`** (préstamos, devoluciones, stock, duplicados e integridad referencial). Estas crean sus propios datos y los borran al terminar.
+
+Resultado de la última ejecución (10/11/2026, con SQL Server Express): **43 de 43 pruebas aprobadas**.
+
+**Validaciones y entidades**
 
 | N.º | Prueba | Resultado |
 |---|---|---|
@@ -400,35 +407,71 @@ Se ejecutan con `dotnet run --project BibliotecaApp.Pruebas` y no requieren base
 | 18 | Libro con stock 0 no tiene existencias | Aprobada |
 | 19 | Un préstamo nuevo inicia en estado «Prestado» | Aprobada |
 
+**Reglas de negocio sin base de datos**
+
+| N.º | Prueba | Resultado |
+|---|---|---|
+| 20 | Préstamo sin usuario es rechazado | Aprobada |
+| 21 | Préstamo sin libro es rechazado | Aprobada |
+| 22 | Préstamo con fecha futura es rechazado | Aprobada |
+| 23 | Devolución con fecha futura es rechazada | Aprobada |
+| 24 | Devolución anterior al préstamo es rechazada | Aprobada |
+| 25 | La búsqueda LIKE escapa los comodines `%`, `_` y `[` | Aprobada |
+| 26 | Un error de SQL Server en inglés se asocia a la restricción exacta | Aprobada |
+| 27 | Un error de SQL Server en español (comillas dobles) se reconoce | Aprobada |
+
+**Contra `BibliotecaDB` (argumento `bd`)**
+
+| N.º | Prueba | Resultado |
+|---|---|---|
+| 28 | Autor duplicado (sin distinguir mayúsculas) es rechazado | Aprobada |
+| 29 | ISBN repetido escrito sin guiones es rechazado | Aprobada |
+| 30 | Registrar préstamo descuenta una unidad (2 → 1) | Aprobada |
+| 31 | Mismo libro activo para el mismo usuario es rechazado | Aprobada |
+| 32 | Cuarto préstamo activo del usuario es rechazado (máximo 3) | Aprobada |
+| 33 | Préstamo de un libro sin existencias es rechazado | Aprobada |
+| 34 | Un préstamo rechazado no cambia el stock | Aprobada |
+| 35 | Registrar devolución repone la unidad (1 → 2) | Aprobada |
+| 36 | Devolver dos veces el mismo préstamo es rechazado | Aprobada |
+| 37 | La segunda devolución no infla el stock | Aprobada |
+| 38 | Eliminar un préstamo activo repone el stock (0 → 1) | Aprobada |
+| 39 | Actualizar un libro con un stock desactualizado es rechazado | Aprobada |
+| 40 | …y no modifica el stock | Aprobada |
+| 41 | Actualizar con el stock vigente sí guarda (2 → 5) | Aprobada |
+| 42 | Eliminar un usuario con préstamos es rechazado | Aprobada |
+| 43 | Eliminar un autor con libros es rechazado | Aprobada |
+
 ### 14.2 Pruebas funcionales con la aplicación y la base de datos
 
-Estos casos requieren SQL Server. Ejecútelos con los datos del script y complete la columna **Resultado obtenido** (Aprobada / Fallida) con una captura cuando sea relevante.
+**Cómo se ejecutaron.** El 10/11/2026 se recorrieron los 23 casos sobre la aplicación en ejecución (Windows 11, .NET 10, SQL Server Express), partiendo de los datos del script. La interfaz se manejó con *UI Automation* de Windows, igual que lo haría un usuario: se escribieron los datos en los campos, se pulsaron los botones y **se leyó el texto real del mensaje mostrado**, que se guardó como imagen en [`docs/pruebas/`](docs/pruebas). Cuando el caso cambia existencias o estados, el resultado también se comprobó con una consulta directa a SQL Server. El registro completo está en [`docs/pruebas/resultados_pruebas_funcionales.csv`](docs/pruebas/resultados_pruebas_funcionales.csv). Al terminar, la base se volvió a crear con el script.
+
+**Resultado: 23 de 23 aprobadas** (PF23 de forma simulada; ver la nota del caso).
 
 | ID | Módulo | Caso de prueba | Datos de entrada | Resultado esperado | Resultado obtenido |
 |---|---|---|---|---|---|
-| PF01 | Autores | Registrar autor válido | Pablo / Neruda / Chilena | Mensaje de éxito; aparece en la tabla | |
-| PF02 | Autores | Campo obligatorio vacío | Nombre vacío | Advertencia «El campo 'Nombre' es obligatorio» | |
-| PF03 | Autores | Eliminar autor con libros | Gabriel García Márquez | Advertencia: autor relacionado con libros | |
-| PF04 | Editoriales | Correo duplicado | Correo `atencion@planeta.com` (ya registrado en Grupo Editorial Planeta) | Advertencia de correo duplicado | |
-| PF05 | Usuarios | Documento duplicado | Documento `1018456789` | Advertencia de documento duplicado | |
-| PF06 | Usuarios | Correo inválido | `correo@dominio` | Advertencia de formato de correo | |
-| PF07 | Usuarios | Eliminar usuario con préstamos | Marlon Moncaleano | Advertencia: usuario con préstamos | |
-| PF08 | Libros | Registrar libro válido | ISBN `978-958-00-0000-0`, autor y editorial existentes, año 2020, 3 ejemplares | Mensaje de éxito | |
-| PF09 | Libros | ISBN duplicado | ISBN `978-958-42-2000-4` | Advertencia «Ya existe un libro registrado con ese ISBN» | |
-| PF10 | Libros | Año futuro | Año mayor al actual | El control numérico no lo permite; la capa de negocio lo rechaza | |
-| PF11 | Libros | Buscar por título | Criterio Título, texto `soledad` | Se muestra «Cien años de soledad» | |
-| PF12 | Libros | Buscar por autor | Criterio Autor, texto `Borges` | Se muestra «Ficciones» | |
-| PF13 | Libros | Eliminar libro con préstamo activo | «Ficciones» | Advertencia: tiene préstamos activos | |
-| PF14 | Préstamos | Registrar préstamo | Usuario 6 (Valentina Rojas), libro «Delirio» | Préstamo «Prestado»; stock de Delirio baja de 4 a 3 | |
-| PF15 | Préstamos | Libro sin existencias | Reducir a 0 el stock de un libro y prestarlo | Advertencia: sin existencias disponibles | |
-| PF16 | Préstamos | Máximo de préstamos | Registrar 3 préstamos activos a un mismo usuario y solicitar un cuarto | Advertencia de máximo de 3 préstamos | |
-| PF17 | Préstamos | Libro repetido | Usuario 1 pide «Ficciones» otra vez | Advertencia: ya tiene prestado ese libro | |
-| PF18 | Devoluciones | Registrar devolución | Seleccionar préstamo activo → Registrar devolución | Estado «Devuelto», fecha asignada, stock +1 | |
-| PF19 | Devoluciones | Devolver dos veces | Intentar devolver un préstamo ya devuelto | Botón deshabilitado; si se fuerza, advertencia | |
-| PF20 | Préstamos | Eliminar préstamo activo | Eliminar un préstamo «Prestado» | Préstamo eliminado y stock +1 | |
-| PF21 | Reportes | Resumen consolidado | Seleccionar el reporte | Totales coherentes con las tablas | |
-| PF22 | Reportes | Exportar CSV | Exportar «Historial de préstamos» | Archivo `.csv` que abre correctamente en Excel | |
-| PF23 | Conexión | SQL Server apagado | Detener el servicio y abrir la aplicación | Advertencia clara y estado «Sin conexión» | |
+| PF01 | Autores | Registrar autor válido | Pablo / Neruda / Chilena | Mensaje de éxito; aparece en la tabla | **Aprobada.** «Autor registrado correctamente.» y el autor aparece en la tabla. [Captura](docs/pruebas/PF01_registrar_autor.png) |
+| PF02 | Autores | Campo obligatorio vacío | Nombre vacío | Advertencia «El campo 'Nombre' es obligatorio» | **Aprobada.** «El campo 'Nombre' es obligatorio.» [Captura](docs/pruebas/PF02_campo_obligatorio.png) |
+| PF03 | Autores | Eliminar autor con libros | Gabriel García Márquez | Advertencia: autor relacionado con libros | **Aprobada.** «Operación no permitida: el autor está relacionado con libros registrados.» [Captura](docs/pruebas/PF03_autor_con_libros.png) |
+| PF04 | Editoriales | Correo duplicado | Correo `atencion@planeta.com` (ya registrado en Grupo Editorial Planeta) | Advertencia de correo duplicado | **Aprobada.** «Ya existe una editorial con ese correo electrónico.» [Captura](docs/pruebas/PF04_correo_duplicado.png) |
+| PF05 | Usuarios | Documento duplicado | Documento `1018456789` | Advertencia de documento duplicado | **Aprobada.** «Ya existe un usuario registrado con ese documento.» [Captura](docs/pruebas/PF05_documento_duplicado.png) |
+| PF06 | Usuarios | Correo inválido | `correo@dominio` | Advertencia de formato de correo | **Aprobada.** «El campo 'Correo electrónico' no tiene un formato de correo válido.» [Captura](docs/pruebas/PF06_correo_invalido.png) |
+| PF07 | Usuarios | Eliminar usuario con préstamos | Marlon Moncaleano | Advertencia: usuario con préstamos | **Aprobada.** «Operación no permitida: el usuario tiene préstamos registrados.» [Captura](docs/pruebas/PF07_usuario_con_prestamos.png) |
+| PF08 | Libros | Registrar libro válido | ISBN `978-958-00-0000-0`, autor y editorial existentes, año 2020, 3 ejemplares | Mensaje de éxito | **Aprobada.** «Libro registrado correctamente.»; en la base: año 2020, stock 3. [Captura](docs/pruebas/PF08_registrar_libro.png) |
+| PF09 | Libros | ISBN duplicado | ISBN `978-958-42-2000-4` | Advertencia de ISBN duplicado | **Aprobada.** «Ya existe un libro con ese ISBN (escrito con o sin guiones).» [Captura](docs/pruebas/PF09_isbn_duplicado.png) |
+| PF10 | Libros | Año futuro | Año mayor al actual | El control numérico no lo permite; la capa de negocio lo rechaza | **Aprobada.** Se escribió 2035 y al salir del campo el control quedó en 2026 (año actual). La regla de `LibroBLL` no se puede forzar desde la interfaz, porque el control ya lo impide. |
+| PF11 | Libros | Buscar por título | Criterio Título, texto `soledad` | Se muestra «Cien años de soledad» | **Aprobada.** 1 registro: «Cien años de soledad». [Captura](docs/pruebas/PF11_buscar_titulo.png) |
+| PF12 | Libros | Buscar por autor | Criterio Autor, texto `Borges` | Se muestra «Ficciones» | **Aprobada.** 1 registro: «Ficciones». [Captura](docs/pruebas/PF12_buscar_autor.png) |
+| PF13 | Libros | Eliminar libro con préstamo activo | «Ficciones» | Advertencia: tiene préstamos activos | **Aprobada.** «No se puede eliminar el libro: tiene 1 préstamo(s) activo(s).» [Captura](docs/pruebas/PF13_libro_con_prestamo.png) |
+| PF14 | Préstamos | Registrar préstamo | Usuario 6 (Valentina Rojas), libro «Delirio» | Préstamo «Prestado»; stock de Delirio baja de 4 a 3 | **Aprobada.** «Préstamo registrado correctamente…»; estado «Prestado»; stock de Delirio 4 → 3. [Captura](docs/pruebas/PF14_registrar_prestamo.png) |
+| PF15 | Préstamos | Libro sin existencias | Reducir a 0 el stock de un libro y prestarlo | Advertencia: sin existencias disponibles | **Aprobada.** «La fiesta del chivo» se puso en 0 y al prestarlo: «El libro seleccionado no cuenta con existencias disponibles.» [Captura](docs/pruebas/PF15_sin_existencias.png) |
+| PF16 | Préstamos | Máximo de préstamos | Registrar 3 préstamos activos a un mismo usuario y solicitar un cuarto | Advertencia de máximo de 3 préstamos | **Aprobada.** Los 3 préstamos de Carlos Mendoza se registraron; el cuarto: «El usuario alcanzó el máximo de 3 préstamos activos…» [Captura](docs/pruebas/PF16_maximo_prestamos.png) |
+| PF17 | Préstamos | Libro repetido | Usuario 1 pide «Ficciones» otra vez | Advertencia: ya tiene prestado ese libro | **Aprobada.** «El usuario ya tiene prestado este libro y aún no lo ha devuelto.» [Captura](docs/pruebas/PF17_libro_repetido.png) |
+| PF18 | Devoluciones | Registrar devolución | Seleccionar préstamo activo → Registrar devolución | Estado «Devuelto», fecha asignada, stock +1 | **Aprobada.** «Devolución registrada…»; en la base: «Devuelto» con fecha y hora; stock de Delirio 3 → 4. [Mensaje](docs/pruebas/PF18_registrar_devolucion.png) · [Tabla](docs/pruebas/PF18_tabla_tras_devolucion.png) |
+| PF19 | Devoluciones | Devolver dos veces | Intentar devolver un préstamo ya devuelto | Botón deshabilitado; si se fuerza, advertencia | **Aprobada.** Con el préstamo devuelto seleccionado, «Registrar devolución» está deshabilitado. El caso forzado lo cubre la prueba automática 36. [Captura](docs/pruebas/PF19_boton_deshabilitado.png) |
+| PF20 | Préstamos | Eliminar préstamo activo | Eliminar un préstamo «Prestado» | Préstamo eliminado y stock +1 | **Aprobada.** Se pidió confirmación, se eliminó el préstamo y el stock de Rayuela pasó de 2 a 3. [Captura](docs/pruebas/PF20_eliminar_prestamo_activo.png) |
+| PF21 | Reportes | Resumen consolidado | Seleccionar el reporte | Totales coherentes con las tablas | **Aprobada.** Los 7 totales coinciden con conteos hechos directamente sobre las tablas. [Captura](docs/pruebas/PF21_resumen_consolidado.png) |
+| PF22 | Reportes | Exportar CSV | Exportar «Historial de préstamos» | Archivo `.csv` que abre correctamente en Excel | **Aprobada.** «Reporte exportado correctamente.»; el archivo tiene 10 filas más el encabezado, UTF-8 con BOM y separador `;`. Excel lo abrió con 11 filas × 8 columnas. [Captura](docs/pruebas/PF22_exportar_csv.png) |
+| PF23 | Conexión | SQL Server apagado | Detener el servicio y abrir la aplicación | Advertencia clara y estado «Sin conexión» | **Aprobada (simulada).** No se detuvo el servicio: la cadena de conexión del ejecutable se apuntó a una instancia inexistente. A los ~11 s apareció «No se pudo conectar con SQL Server…», la barra de estado mostró «Sin conexión» e Inicio explicó la causa, sin que la aplicación se cerrara. [Advertencia](docs/pruebas/PF23_sin_conexion.png) · [Barra de estado](docs/pruebas/PF23_barra_estado_sin_conexion.png) |
 
 ## 15. Control de versiones con Git y GitHub
 
