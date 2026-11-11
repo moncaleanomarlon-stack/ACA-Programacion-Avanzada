@@ -13,3 +13,16 @@ dotnet run --project herramientas/GenerarPdf -- DOCUMENTACION.md DOCUMENTACION.p
 ```
 
 Argumentos: archivo Markdown, PDF de salida, ruta de `msedge.exe` y una carpeta temporal (para el HTML intermedio y el perfil de Edge).
+
+## GenerarWord.ps1
+
+Genera `DOCUMENTACION.docx` con Microsoft Word (requiere Word instalado), a partir del HTML intermedio que deja `GenerarPdf` en su carpeta temporal (`documentacion.html`). Incrusta las imágenes, ajusta tablas e imágenes al ancho de la página A4, inserta una **tabla de contenido** de Word y el pie «Página X de Y». También guarda un PDF de revisión.
+
+```powershell
+# 1. Generar el PDF (deja el HTML intermedio en la carpeta temporal)
+dotnet run --project herramientas/GenerarPdf -- DOCUMENTACION.md DOCUMENTACION.pdf "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" "$env:TEMP\GenerarPdf"
+# 2. Convertir ese HTML a Word
+powershell -ExecutionPolicy Bypass -File herramientas\GenerarWord.ps1 -Html "$env:TEMP\GenerarPdf\documentacion.html" -Docx "$PWD\DOCUMENTACION.docx" -PdfPrueba "$env:TEMP\GenerarPdf\revision_word.pdf"
+```
+
+En Word, la tabla de contenido y los números de página se actualizan con clic derecho → *Actualizar campos*.
